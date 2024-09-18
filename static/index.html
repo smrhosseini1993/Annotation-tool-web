@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PET-image annotation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar">
+            <div class="control-group">
+                <label for="brushSize">Brush size (pixels):</label>
+                <input type="range" id="brushSize" min="2" max="38" step="2" value="20">
+                <span id="brushSizeValue">20</span>
+            </div>
+            <div class="tool-buttons">
+                <button id="brushBtn" class="tool-button active">Brush</button>
+                <button id="eraserBtn" class="tool-button">Eraser</button>
+                <button id="undoBtn" class="tool-button">Undo</button>
+                <button id="redoBtn" class="tool-button">Redo</button>
+            </div>
+        </div>
+        
+        <canvas id="brushSizeCanvas" width="350" height="40"></canvas>
+        
+        <div class="canvas-container">
+            <canvas id="backgroundCanvas"></canvas>
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+        
+        <div class="prediction-controls">
+            <label>
+                <input type="radio" name="prediction" value="1" required> Ischemic
+            </label>
+            <label>
+                <input type="radio" name="prediction" value="0" required> Non-ischemic
+            </label>
+        </div>
+        <div class="bottom-toolbar">
+            <button id="nextBtn" class="action-button">NEXT</button>
+        </div>
+    </div>
+    <script defer src="/static/script.js"></script>
+</body>
+</html>
