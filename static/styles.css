@@ -26,8 +26,19 @@ body {
 }
 
 #brushSizeCanvas {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     border: 1px solid #ddd;
+}
+
+/* Hint bar shown when Fill Pen tool is active */
+.fill-pen-hint {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    font-size: 0.88rem;
+    color: #5d4037;
 }
 
 .canvas-container {
@@ -123,4 +134,20 @@ canvas {
 .tool-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Fill Pen button gets a slightly different accent colour so it stands out */
+#fillPenBtn {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+#fillPenBtn:hover {
+    background: #e6f7ec;
+}
+
+#fillPenBtn.active {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
 }

@@ -15,20 +15,27 @@
                 <span id="brushSizeValue">20</span>
             </div>
             <div class="tool-buttons">
-                <button id="brushBtn" class="tool-button active">Brush</button>
-                <button id="eraserBtn" class="tool-button">Eraser</button>
-                <button id="undoBtn" class="tool-button">Undo</button>
-                <button id="redoBtn" class="tool-button">Redo</button>
+                <button id="brushBtn"   class="tool-button active">Brush</button>
+                <button id="fillPenBtn" class="tool-button">Fill Pen</button>
+                <button id="eraserBtn"  class="tool-button">Eraser</button>
+                <button id="undoBtn"    class="tool-button">Undo</button>
+                <button id="redoBtn"    class="tool-button">Redo</button>
             </div>
         </div>
-        
+
+        <!-- Brush-size preview (hidden / irrelevant while Fill Pen is active) -->
         <canvas id="brushSizeCanvas" width="350" height="40"></canvas>
-        
+
+        <!-- Tooltip shown when Fill Pen is active -->
+        <div id="fillPenHint" class="fill-pen-hint" style="display:none;">
+            &#9998; <strong>Fill Pen:</strong> Draw a closed border around the region — it will be filled automatically when you release the mouse.
+        </div>
+
         <div class="canvas-container">
             <canvas id="backgroundCanvas"></canvas>
             <canvas id="drawingCanvas"></canvas>
         </div>
-        
+
         <div class="prediction-controls">
             <label>
                 <input type="radio" name="prediction" value="1" required> Ischemic
