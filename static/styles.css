@@ -17,6 +17,8 @@ body {
 .toolbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 10px;
 }
 
@@ -30,17 +32,29 @@ body {
     border: 1px solid #ddd;
 }
 
-/* Hint bar shown when Fill Pen tool is active */
-.fill-pen-hint {
-    background: #fff8e1;
-    border: 1px solid #ffe082;
+/* ── Hint bars ──────────────────────────────────────────────────────────── */
+.tool-hint {
     border-radius: 4px;
     padding: 6px 12px;
     margin-bottom: 10px;
     font-size: 0.88rem;
+}
+
+/* Fill Pen hint – amber */
+#fillPenHint {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
     color: #5d4037;
 }
 
+/* Polygon Pen hint – indigo tint */
+.poly-hint {
+    background: #f3f0ff;
+    border: 1px solid #b39ddb;
+    color: #311b92;
+}
+
+/* ── Canvas stack ───────────────────────────────────────────────────────── */
 .canvas-container {
     width: 100%;
     overflow: auto;
@@ -68,6 +82,13 @@ canvas {
     z-index: 2;
 }
 
+/* Overlay canvas sits on top for polygon anchors & rubber-band line */
+#overlayCanvas {
+    z-index: 3;
+    pointer-events: none; /* mouse events fall through to drawingCanvas */
+}
+
+/* ── Bottom toolbar ─────────────────────────────────────────────────────── */
 .bottom-toolbar {
     display: flex;
     justify-content: flex-end;
@@ -89,6 +110,7 @@ canvas {
     background: #0056b3;
 }
 
+/* ── Prediction controls ────────────────────────────────────────────────── */
 .prediction-controls {
     margin: 10px 0;
     text-align: left;
@@ -106,9 +128,11 @@ canvas {
     margin-right: 5px;
 }
 
+/* ── Tool buttons ───────────────────────────────────────────────────────── */
 .tool-buttons {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-left: 20px;
 }
 
@@ -136,18 +160,34 @@ canvas {
     cursor: not-allowed;
 }
 
-/* Fill Pen button gets a slightly different accent colour so it stands out */
+/* Fill Pen – green accent */
 #fillPenBtn {
     border-color: #28a745;
     color: #28a745;
 }
+#fillPenBtn:hover  { background: #e6f7ec; }
+#fillPenBtn.active { background: #28a745; color: white; border-color: #28a745; }
 
-#fillPenBtn:hover {
-    background: #e6f7ec;
+/* Polygon Pen – indigo accent */
+#polygonPenBtn {
+    border-color: #6f42c1;
+    color: #6f42c1;
 }
+#polygonPenBtn:hover  { background: #f0ebff; }
+#polygonPenBtn.active { background: #6f42c1; color: white; border-color: #6f42c1; }
 
-#fillPenBtn.active {
-    background: #28a745;
-    color: white;
-    border-color: #28a745;
+/* Fill In – teal, only shown during polygon placement */
+#fillInBtn {
+    border-color: #17a2b8;
+    color: #17a2b8;
+    font-weight: bold;
 }
+#fillInBtn:hover  { background: #e0f7fa; }
+#fillInBtn.active { background: #17a2b8; color: white; border-color: #17a2b8; }
+
+/* Cancel – red-ish, only shown during polygon placement */
+#cancelPolyBtn {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+#cancelPolyBtn:hover { background: #fdecea; }
