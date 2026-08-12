@@ -1,0 +1,33 @@
+name: Build Windows Study Kit
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'study-kit-v*'
+
+jobs:
+  build-windows-study-kit:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build the packaged Study Kit
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          .\packaging\windows\build_study_kit.ps1
+
+      - name: Upload Windows Study Kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: PET-MPI-Annotation-Study-Windows
+          path: release/PET-MPI-Annotation-Study-Windows
+          if-no-files-found: error
