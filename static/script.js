@@ -1,40 +1,48 @@
 /**
  * PET polar-map annotation tool
  *
- * Formal annotation mode uses a fixed 128 × 128 grid.  Every image in the
- * study is 1024 × 1024, so a selected grid cell maps to an 8 × 8 pixel block.
- * The black outer background/ring and the fixed left-side notch are a
- * non-adherent layer: gestures may pass over them, but their pixels cannot be
- * coloured or exported as part of the binary mask.
+ * Formal annotation uses a fixed 128 × 128 grid. On 1024 × 1024 polar maps,
+ * each cell is 8 × 8 pixels. The black outer ring and left-side notch are a
+ * non-adherent layer: a clinician may draw through them, but they never show
+ * annotation and they are always zero in the saved binary mask.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ── Fixed annotation configuration ──────────────────────────────────────
+    // ── Fixed grid / protected-area configuration ───────────────────────────
     const GRID_DIMENSION = 128;
     const BLACK_PIXEL_LIMIT = 12;
     const MIN_PAINTABLE_PIXELS_PER_CELL = 16;
-    const MASK_RGB = [0, 102, 255];
-    const MASK_ALPHA = 108; // consistent 42% opacity for every selected pixel
+    const MASK_ALPHA = 108; // uniform 42% opacity for drawing display
+    const PREVIEW_WHITE_ALPHA = 118; // uniform white overlay in final preview
 
-    // ── Canvases ────────────────────────────────────────────────────────────
+    // ── Canvas elements ─────────────────────────────────────────────────────
     const backgroundCanvas = document.getElementById('backgroundCanvas');
     const maskCanvas = document.getElementById('maskCanvas');
     const guideCanvas = document.getElementById('guideCanvas');
     const gridCanvas = document.getElementById('gridCanvas');
+    const previewCanvas = document.getElementById('previewCanvas');
 
     const bgCtx = backgroundCanvas.getContext('2d');
     const maskCtx = maskCanvas.getContext('2d');
     const guideCtx = guideCanvas.getContext('2d');
     const gridCtx = gridCanvas.getContext('2d');
+    const previewCtx = previewCanvas.getContext('2d');
 
     // ── Controls ────────────────────────────────────────────────────────────
-    const addCellsBtn = document.getElementById('addCellsBtn');
-    const removeCellsBtn = document.getElementById('removeCellsBtn');
+    const brushBtn = document.getElementById('brushBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const brushSizeInput = document.getElementById('brushSize');
+    const brushColorInput = document.getElementById('brushColor');
     const undoBtn = document.getElementById('undoBtn');
     const redoBtn = document.getElementById('redoBtn');
     const guideToggle = document.getElementById('guideToggle');
     const guideStrength = document.getElementById('guideStrength');
     const cellGridToggle = document.getElementById('cellGridToggle');
+    const gridColorInput = document.getElementById('gridColor');
+    const previewBtn = document.getElementById('previewBtn');
+    const previewModal = document.getElementById('previewModal');
+    const closePreviewBtn = document.getElementById('closePreviewBtn');
+    const returnToEditingBtn = document.getElementById('returnToEditingBtn');
     const nextBtn = document.getElementById('nextBtn');
 
     // ── Image/session state ─────────────────────────────────────────────────
@@ -49,16 +57,42 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedCells = new Set();
     let undoStack = [];
     let redoStack = [];
-    let activeMode = 'add'; // 'add' | 'remove'
+    let activeMode = 'brush'; // 'brush' | 'eraser'
+    let brushSizeInCells = 1; // one side of the square stamp: 1, 2, 4, or 8
     let isDrawing = false;
     let lastGridCell = null;
     let currentAction = null;
     let hoverCell = null;
 
-    // `paintablePixels` is the fixed non-adherent stencil for the current map.
-    // 1 = overlay/mask allowed; 0 = black background/notch, permanently zero.
+    // 1 = paint allowed, 0 = fixed non-adherent black outer ring/notch.
     let paintablePixels = null;
     let cellHasPaintableArea = new Uint8Array(GRID_DIMENSION * GRID_DIMENSION);
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  Utility functions
+    // ════════════════════════════════════════════════════════════════════════
+    function hexToRgb(hex) {
+        const normalised = hex.replace('#', '');
+        return {
+            r: parseInt(normalised.slice(0, 2), 16),
+            g: parseInt(normalised.slice(2, 4), 16),
+            b: parseInt(normalised.slice(4, 6), 16)
+        };
+    }
+
+    function rgbaFromHex(hex, alpha) {
+        const { r, g, b } = hexToRgb(hex);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function cellKey(col, row) {
+        return `${col}:${row}`;
+    }
+
+    function keyToCell(key) {
+        const [col, row] = key.split(':').map(Number);
+        return { col, row };
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     //  Canvas and image loading
@@ -72,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.querySelector('.canvas-container');
         container.style.width = `${width}px`;
         container.style.height = `${height}px`;
-
         cellWidth = width / GRID_DIMENSION;
         cellHeight = height / GRID_DIMENSION;
     }
@@ -82,8 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/static/images');
             const sourceImages = await response.json();
 
-            // The original project uses the number embedded in each filename to
-            // preserve prediction-file ordering after images are shuffled.
             originalIndices = sourceImages.map((image, listIndex) => {
                 const numberMatch = image.match(/\d+/);
                 return {
@@ -118,20 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve, reject) => {
             const image = new Image();
             image.src = `/static/input_images/${images[index]}`;
-
             image.onload = () => {
                 initialiseCanvases(image.width, image.height);
                 bgCtx.clearRect(0, 0, image.width, image.height);
                 bgCtx.drawImage(image, 0, 0);
                 currentImage = image;
-
                 buildNonAdherentStencil();
                 redrawMask();
                 drawGuide();
                 drawCellGrid();
                 resolve();
             };
-
             image.onerror = () => reject(new Error(`Could not load ${images[index]}`));
         });
     }
@@ -150,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  Fixed protected black-region layer
+    //  Non-adherent black outer-ring and notch stencil
     // ════════════════════════════════════════════════════════════════════════
     function buildNonAdherentStencil() {
         const width = backgroundCanvas.width;
@@ -166,11 +194,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const r = sourcePixels[sourceIndex];
                 const g = sourcePixels[sourceIndex + 1];
                 const b = sourcePixels[sourceIndex + 2];
-
-                // The supplied polar maps use fixed near-black pixels for the
-                // outer background/ring and left-side notch. Those locations
-                // form the non-adherent stencil; dark blue perfusion data is
-                // far above this threshold and remains paintable.
                 const isProtectedBlack = r <= BLACK_PIXEL_LIMIT &&
                     g <= BLACK_PIXEL_LIMIT &&
                     b <= BLACK_PIXEL_LIMIT;
@@ -183,25 +206,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // A cell that contains only a thin white border against black
-        // background is not a usable selection cell. This avoids visible paint
-        // fragments in the black ring/notch while retaining partly covered
-        // cells at the true circular boundary.
+        // Reject cells made only of a very thin white boundary on black; retain
+        // usable partial cells at the true circular coloured-map boundary.
         for (let i = 0; i < validCounts.length; i++) {
             cellHasPaintableArea[i] = validCounts[i] >= MIN_PAINTABLE_PIXELS_PER_CELL ? 1 : 0;
         }
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Grid rendering and binary mask rendering
-    // ════════════════════════════════════════════════════════════════════════
-    function cellKey(col, row) {
-        return `${col}:${row}`;
-    }
-
-    function keyToCell(key) {
-        const [col, row] = key.split(':').map(Number);
-        return { col, row };
     }
 
     function isSelectableCell(col, row) {
@@ -209,16 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return cellHasPaintableArea[row * GRID_DIMENSION + col] === 1;
     }
 
-    /**
-     * Render selected grid cells at one perfectly consistent visual opacity.
-     * Only pixels permitted by the non-adherent stencil receive alpha.
-     */
+    // ════════════════════════════════════════════════════════════════════════
+    //  Annotation display and visible grid
+    // ════════════════════════════════════════════════════════════════════════
     function redrawMask() {
         const width = maskCanvas.width;
         const height = maskCanvas.height;
         maskCtx.clearRect(0, 0, width, height);
         if (!paintablePixels || selectedCells.size === 0) return;
 
+        const colour = hexToRgb(brushColorInput.value);
         const imageData = maskCtx.createImageData(width, height);
         const data = imageData.data;
 
@@ -235,14 +244,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pixelIndex = rowOffset + x;
                     if (!paintablePixels[pixelIndex]) continue;
                     const outputIndex = pixelIndex * 4;
-                    data[outputIndex] = MASK_RGB[0];
-                    data[outputIndex + 1] = MASK_RGB[1];
-                    data[outputIndex + 2] = MASK_RGB[2];
+                    data[outputIndex] = colour.r;
+                    data[outputIndex + 1] = colour.g;
+                    data[outputIndex + 2] = colour.b;
                     data[outputIndex + 3] = MASK_ALPHA;
                 }
             }
         });
-
         maskCtx.putImageData(imageData, 0, 0);
     }
 
@@ -250,14 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = gridCanvas.width;
         const height = gridCanvas.height;
         gridCtx.clearRect(0, 0, width, height);
-
         if (!cellGridToggle.checked || !currentImage) return;
 
         gridCtx.save();
-        gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        gridCtx.strokeStyle = rgbaFromHex(gridColorInput.value, 0.30);
         gridCtx.lineWidth = 0.7;
         gridCtx.beginPath();
-
         for (let col = 0; col <= GRID_DIMENSION; col++) {
             const x = Math.round(col * cellWidth) + 0.5;
             gridCtx.moveTo(x, 0);
@@ -270,21 +276,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         gridCtx.stroke();
 
-        // Highlight the cell that will be affected by the next click/drag.
         if (hoverCell && isSelectableCell(hoverCell.col, hoverCell.row)) {
-            const x = hoverCell.col * cellWidth;
-            const y = hoverCell.row * cellHeight;
-            gridCtx.strokeStyle = activeMode === 'add'
-                ? 'rgba(98, 255, 160, 0.96)'
-                : 'rgba(255, 120, 120, 0.96)';
-            gridCtx.lineWidth = 1.5;
-            gridCtx.strokeRect(x + 0.75, y + 0.75, cellWidth - 1.5, cellHeight - 1.5);
+            const side = brushSizeInCells;
+            const start = stampStart(hoverCell.col, hoverCell.row, side);
+            gridCtx.strokeStyle = activeMode === 'brush'
+                ? rgbaFromHex(brushColorInput.value, 0.98)
+                : 'rgba(255, 105, 105, 0.98)';
+            gridCtx.lineWidth = 1.6;
+            gridCtx.strokeRect(
+                start.col * cellWidth + 0.75,
+                start.row * cellHeight + 0.75,
+                side * cellWidth - 1.5,
+                side * cellHeight - 1.5
+            );
         }
         gridCtx.restore();
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  17-segment white viewing guide (display only; never affects the mask)
+    //  White 17-segment viewing guide (display only)
     // ════════════════════════════════════════════════════════════════════════
     function guideStyle() {
         if (guideStrength.value === 'faint') return { alpha: 0.36, lineWidth: 0.85 };
@@ -301,9 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { alpha, lineWidth } = guideStyle();
         const cx = width / 2;
         const cy = height / 2;
-        // The coloured polar-map disc occupies a fixed central area of the
-        // supplied 1024 × 1024 images. Keep the guide inside that disc, not on
-        // the surrounding black ring.
+        // Fixed 1024px study maps place the coloured polar-map disc inside the
+        // surrounding black ring at this radius.
         const outerRadius = Math.min(width, height) * 0.409;
         const basalInnerRadius = outerRadius * 0.67;
         const midInnerRadius = outerRadius * 0.38;
@@ -314,31 +323,21 @@ document.addEventListener('DOMContentLoaded', () => {
         guideCtx.lineWidth = lineWidth;
         guideCtx.lineCap = 'round';
 
-        // Ring boundaries: basal, mid, apical, apex.
         [outerRadius, basalInnerRadius, midInnerRadius, apicalInnerRadius].forEach(radius => {
             guideCtx.beginPath();
             guideCtx.arc(cx, cy, radius, 0, Math.PI * 2);
             guideCtx.stroke();
         });
 
-        // Basal ring: six sectors.
         for (let i = 0; i < 6; i++) {
-            const angle = -Math.PI / 2 + i * (Math.PI / 3);
-            drawRadialLine(cx, cy, basalInnerRadius, outerRadius, angle);
+            drawRadialLine(cx, cy, basalInnerRadius, outerRadius, -Math.PI / 2 + i * Math.PI / 3);
         }
-
-        // Mid ring: six sectors, offset by 30 degrees from basal segments.
         for (let i = 0; i < 6; i++) {
-            const angle = -Math.PI / 2 + Math.PI / 6 + i * (Math.PI / 3);
-            drawRadialLine(cx, cy, midInnerRadius, basalInnerRadius, angle);
+            drawRadialLine(cx, cy, midInnerRadius, basalInnerRadius, -Math.PI / 2 + Math.PI / 6 + i * Math.PI / 3);
         }
-
-        // Apical ring: four sectors.
         for (let i = 0; i < 4; i++) {
-            const angle = -Math.PI / 2 + Math.PI / 4 + i * (Math.PI / 2);
-            drawRadialLine(cx, cy, apicalInnerRadius, midInnerRadius, angle);
+            drawRadialLine(cx, cy, apicalInnerRadius, midInnerRadius, -Math.PI / 2 + Math.PI / 4 + i * Math.PI / 2);
         }
-
         guideCtx.restore();
     }
 
@@ -350,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  Grid-cell selection interaction
+    //  Square grid brush / eraser interaction
     // ════════════════════════════════════════════════════════════════════════
     function getGridCellFromEvent(event) {
         const rect = maskCanvas.getBoundingClientRect();
@@ -361,10 +360,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return { col, row };
     }
 
+    /**
+     * Return a full brush stamp that is clamped to the 128×128 grid.  An even
+     * sized brush has no single central cell, so it is centred just above/left
+     * of the pointer cell while preserving the requested square size.
+     */
+    function stampStart(col, row, side) {
+        return {
+            col: Math.max(0, Math.min(GRID_DIMENSION - side, col - Math.floor(side / 2))),
+            row: Math.max(0, Math.min(GRID_DIMENSION - side, row - Math.floor(side / 2)))
+        };
+    }
+
     function setActiveMode(mode) {
         activeMode = mode;
-        addCellsBtn.classList.toggle('active', mode === 'add');
-        removeCellsBtn.classList.toggle('active', mode === 'remove');
+        brushBtn.classList.toggle('active', mode === 'brush');
+        eraserBtn.classList.toggle('active', mode === 'eraser');
         drawCellGrid();
     }
 
@@ -374,20 +385,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyCell(col, row) {
         if (!currentAction || !isSelectableCell(col, row)) return;
-
         const key = cellKey(col, row);
         const before = selectedCells.has(key);
-        const after = activeMode === 'add';
+        const after = activeMode === 'brush';
         if (before === after) return;
-
         selectedCells[after ? 'add' : 'delete'](key);
         currentAction.changes.push({ key, before, after });
     }
 
-    /**
-     * Connect cells between event samples so fast mouse movement selects a
-     * continuous chain of grid boxes rather than leaving blank gaps.
-     */
+    function applyBrushStamp(col, row) {
+        const side = brushSizeInCells;
+        const start = stampStart(col, row, side);
+        for (let y = start.row; y < start.row + side; y++) {
+            for (let x = start.col; x < start.col + side; x++) {
+                applyCell(x, y);
+            }
+        }
+    }
+
+    /** Connect event samples so fast dragging leaves no unselected gaps. */
     function applyGridLine(from, to) {
         let x0 = from.col;
         let y0 = from.row;
@@ -400,17 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let error = dx + dy;
 
         while (true) {
-            applyCell(x0, y0);
+            applyBrushStamp(x0, y0);
             if (x0 === x1 && y0 === y1) break;
             const twiceError = 2 * error;
-            if (twiceError >= dy) {
-                error += dy;
-                x0 += sx;
-            }
-            if (twiceError <= dx) {
-                error += dx;
-                y0 += sy;
-            }
+            if (twiceError >= dy) { error += dy; x0 += sx; }
+            if (twiceError <= dx) { error += dx; y0 += sy; }
         }
     }
 
@@ -454,14 +464,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     maskCanvas.addEventListener('mousedown', event => {
-        if (!currentImage) return;
+        if (!currentImage || previewModal.hidden === false) return;
         event.preventDefault();
         isDrawing = true;
         const cell = getGridCellFromEvent(event);
         hoverCell = cell;
         lastGridCell = cell;
         beginAction();
-        applyCell(cell.col, cell.row);
+        applyBrushStamp(cell.col, cell.row);
         redrawMask();
         drawCellGrid();
     });
@@ -470,7 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentImage) return;
         const cell = getGridCellFromEvent(event);
         hoverCell = cell;
-
         if (isDrawing && lastGridCell) {
             applyGridLine(lastGridCell, cell);
             lastGridCell = cell;
@@ -494,20 +503,71 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    //  Export
+    //  Clean paper-style final-mask preview
+    // ════════════════════════════════════════════════════════════════════════
+    function buildWhitePreviewOverlay() {
+        const width = backgroundCanvas.width;
+        const height = backgroundCanvas.height;
+        const offscreen = document.createElement('canvas');
+        offscreen.width = width;
+        offscreen.height = height;
+        const offCtx = offscreen.getContext('2d');
+        const overlay = offCtx.createImageData(width, height);
+        const data = overlay.data;
+
+        selectedCells.forEach(key => {
+            const { col, row } = keyToCell(key);
+            const startX = Math.floor(col * cellWidth);
+            const endX = Math.min(width, Math.ceil((col + 1) * cellWidth));
+            const startY = Math.floor(row * cellHeight);
+            const endY = Math.min(height, Math.ceil((row + 1) * cellHeight));
+            for (let y = startY; y < endY; y++) {
+                const rowOffset = y * width;
+                for (let x = startX; x < endX; x++) {
+                    const pixelIndex = rowOffset + x;
+                    if (!paintablePixels[pixelIndex]) continue;
+                    const outputIndex = pixelIndex * 4;
+                    data[outputIndex] = 255;
+                    data[outputIndex + 1] = 255;
+                    data[outputIndex + 2] = 255;
+                    data[outputIndex + 3] = PREVIEW_WHITE_ALPHA;
+                }
+            }
+        });
+        offCtx.putImageData(overlay, 0, 0);
+        return offscreen;
+    }
+
+    function openPreview() {
+        if (!currentImage) return;
+        previewCanvas.width = backgroundCanvas.width;
+        previewCanvas.height = backgroundCanvas.height;
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        previewCtx.drawImage(backgroundCanvas, 0, 0);
+        if (selectedCells.size > 0) {
+            previewCtx.drawImage(buildWhitePreviewOverlay(), 0, 0);
+        }
+        previewModal.hidden = false;
+        closePreviewBtn.focus();
+    }
+
+    function closePreview() {
+        previewModal.hidden = true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  Binary mask and saved annotation overlay
     // ════════════════════════════════════════════════════════════════════════
     function buildBinaryMaskText() {
         const width = maskCanvas.width;
         const height = maskCanvas.height;
         const rows = new Array(height);
-
         for (let y = 0; y < height; y++) {
             const row = new Array(width);
             const gridRow = Math.min(GRID_DIMENSION - 1, Math.floor(y / cellHeight));
             for (let x = 0; x < width; x++) {
                 const gridCol = Math.min(GRID_DIMENSION - 1, Math.floor(x / cellWidth));
-                const selected = selectedCells.has(cellKey(gridCol, gridRow));
-                row[x] = selected && paintablePixels[y * width + x] ? '1' : '0';
+                row[x] = selectedCells.has(cellKey(gridCol, gridRow)) && paintablePixels[y * width + x] ? '1' : '0';
             }
             rows[y] = row.join('\t');
         }
@@ -516,7 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveAndNext() {
         if (currentImageIndex >= images.length) return;
-
         const selectedPrediction = document.querySelector('input[name="prediction"]:checked');
         if (!selectedPrediction) {
             alert('Please select whether the image is ischemic or non-ischemic.');
@@ -530,16 +589,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const predictionResponse = await fetch('/save_prediction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imageIndex: originalIndex,
-                    prediction: selectedPrediction.value
-                })
+                body: JSON.stringify({ imageIndex: originalIndex, prediction: selectedPrediction.value })
             });
             if (!predictionResponse.ok) throw new Error('Prediction could not be saved.');
 
-            const binaryBlob = new Blob([buildBinaryMaskText()], { type: 'text/plain' });
             const binaryForm = new FormData();
-            binaryForm.append('file', new File([binaryBlob], `${filename}_binary.txt`));
+            binaryForm.append('file', new File([
+                new Blob([buildBinaryMaskText()], { type: 'text/plain' })
+            ], `${filename}_binary.txt`));
 
             const overlayBlob = await new Promise(resolve => maskCanvas.toBlob(resolve, 'image/png'));
             if (!overlayBlob) throw new Error('Annotation overlay could not be created.');
@@ -550,9 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch('/save_binary', { method: 'POST', body: binaryForm }),
                 fetch('/save_masked_image', { method: 'POST', body: overlayForm })
             ]);
-            if (!binaryResponse.ok || !overlayResponse.ok) {
-                throw new Error('One or more annotation files could not be saved.');
-            }
+            if (!binaryResponse.ok || !overlayResponse.ok) throw new Error('One or more annotation files could not be saved.');
 
             selectedPrediction.checked = false;
             currentImageIndex++;
@@ -564,8 +619,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Event wiring ─────────────────────────────────────────────────────────
-    addCellsBtn.addEventListener('click', () => setActiveMode('add'));
-    removeCellsBtn.addEventListener('click', () => setActiveMode('remove'));
+    brushBtn.addEventListener('click', () => setActiveMode('brush'));
+    eraserBtn.addEventListener('click', () => setActiveMode('eraser'));
+    brushSizeInput.addEventListener('change', () => {
+        brushSizeInCells = Number(brushSizeInput.value);
+        drawCellGrid();
+    });
+    brushColorInput.addEventListener('input', () => {
+        redrawMask();
+        drawCellGrid();
+    });
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);
 
@@ -575,10 +638,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     guideStrength.addEventListener('change', drawGuide);
     cellGridToggle.addEventListener('change', drawCellGrid);
+    gridColorInput.addEventListener('input', drawCellGrid);
+
+    previewBtn.addEventListener('click', openPreview);
+    closePreviewBtn.addEventListener('click', closePreview);
+    returnToEditingBtn.addEventListener('click', closePreview);
+    previewModal.addEventListener('click', event => {
+        if (event.target === previewModal) closePreview();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !previewModal.hidden) closePreview();
+    });
+
     nextBtn.addEventListener('click', saveAndNext);
 
     // ── Initial state ────────────────────────────────────────────────────────
-    setActiveMode('add');
+    setActiveMode('brush');
     updateHistoryButtons();
     loadImages();
 });
