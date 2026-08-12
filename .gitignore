@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+
+# Local study inputs and generated annotation outputs must not be committed.
+static/input_images/*
+!static/input_images/.gitkeep
+static/results/
