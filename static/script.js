@@ -210,9 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.width = width;
             canvas.height = height;
         });
-        const container = document.querySelector('.canvas-container');
-        container.style.width = `${width}px`;
-        container.style.height = `${height}px`;
+        // CSS owns the responsive visual size of the stacked canvases. Their
+        // internal pixel dimensions remain the fixed study image dimensions.
         cellWidth = width / GRID_DIMENSION;
         cellHeight = height / GRID_DIMENSION;
     }

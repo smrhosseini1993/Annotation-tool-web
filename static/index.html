@@ -9,28 +9,22 @@
 </head>
 <body>
     <main class="app-shell">
-        <header class="app-header">
-            <div>
+        <aside class="control-sidebar" aria-label="Annotation controls">
+            <header class="sidebar-header">
                 <p class="eyebrow">PET-MPI CLINICAL ANNOTATION</p>
                 <h1>Decision-region annotation</h1>
-                <p class="header-description">Select grid cells that support the expert’s image-level assessment.</p>
-            </div>
-            <div class="progress-card" aria-live="polite">
-                <span class="progress-label">Current image</span>
-                <strong id="progressText">Loading…</strong>
-                <span id="savedText" class="saved-text"></span>
-            </div>
-        </header>
+                <p>Select grid cells that support the expert’s image-level assessment.</p>
+            </header>
 
-        <section class="control-panel" aria-label="Annotation controls">
-            <div class="control-section">
+            <section class="sidebar-section" aria-label="Grid annotation controls">
                 <p class="section-label">ANNOTATION</p>
-                <div class="control-row">
-                    <div class="segmented-control" aria-label="Grid brush mode">
+                <div class="sidebar-controls">
+                    <div class="segmented-control full-width" aria-label="Grid brush mode">
                         <button id="brushBtn" class="tool-button brush-button active" type="button">Brush</button>
                         <button id="eraserBtn" class="tool-button eraser-button" type="button">Eraser</button>
                     </div>
-                    <label class="select-control" for="brushSize">
+
+                    <label class="select-control full-width" for="brushSize">
                         <span>Brush size</span>
                         <select id="brushSize" aria-label="Grid brush size">
                             <option value="1">1 × 1 cell · 8 px</option>
@@ -39,33 +33,35 @@
                             <option value="8">8 × 8 cells · 64 px</option>
                         </select>
                     </label>
-                    <label class="colour-control" for="brushColor">
+
+                    <label class="colour-control full-width" for="brushColor">
                         <span>Brush colour</span>
                         <input id="brushColor" type="color" value="#0066ff" aria-label="Brush overlay colour">
                     </label>
-                    <button id="undoBtn" class="secondary-button" type="button">Undo</button>
-                    <button id="redoBtn" class="secondary-button" type="button">Redo</button>
+
+                    <div class="history-controls full-width" aria-label="Annotation history">
+                        <button id="undoBtn" class="secondary-button" type="button">Undo</button>
+                        <button id="redoBtn" class="secondary-button" type="button">Redo</button>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="control-divider"></div>
-
-            <div class="control-section">
+            <section class="sidebar-section guides-section" aria-label="Viewing guide controls">
                 <p class="section-label">VIEWING GUIDES</p>
-                <div class="control-row">
-                    <label class="toggle-control" for="cellGridToggle">
+                <div class="sidebar-controls">
+                    <label class="toggle-control full-width" for="cellGridToggle">
                         <input id="cellGridToggle" type="checkbox" checked>
-                        <span>Cell grid</span>
+                        <span>Show cell grid</span>
                     </label>
-                    <label class="colour-control" for="gridColor">
+                    <label class="colour-control full-width" for="gridColor">
                         <span>Grid colour</span>
                         <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
                     </label>
-                    <label class="toggle-control" for="guideToggle">
+                    <label class="toggle-control full-width" for="guideToggle">
                         <input id="guideToggle" type="checkbox">
-                        <span>17-segment guide</span>
+                        <span>Show 17-segment guide</span>
                     </label>
-                    <label class="select-control" for="guideStrength">
+                    <label class="select-control full-width" for="guideStrength">
                         <span>Guide strength</span>
                         <select id="guideStrength" disabled>
                             <option value="faint">Faint</option>
@@ -73,52 +69,67 @@
                             <option value="bold">Bold</option>
                         </select>
                     </label>
-                    <label class="colour-control" for="guideColor">
+                    <label class="colour-control full-width" for="guideColor">
                         <span>Guide colour</span>
                         <input id="guideColor" type="color" value="#ffffff" aria-label="17-segment guide colour">
                     </label>
                 </div>
+            </section>
+
+            <p class="annotation-hint">
+                The grid brush selects complete cells. The outer black ring and left-side notch are non-adherent: you can draw across them, but no annotation appears or is saved there.
+            </p>
+        </aside>
+
+        <section class="image-workspace" aria-label="Polar map review workspace">
+            <div class="workspace-heading">
+                <div>
+                    <p class="eyebrow">CURRENT POLAR MAP</p>
+                    <h2>Review and annotate</h2>
+                </div>
+                <p class="workspace-note">Use the left panel to adjust the brush and viewing guides.</p>
             </div>
+
+            <section class="annotation-workspace" aria-label="PET polar map annotation canvas">
+                <div class="canvas-container">
+                    <canvas id="backgroundCanvas"></canvas>
+                    <canvas id="maskCanvas"></canvas>
+                    <canvas id="guideCanvas"></canvas>
+                    <canvas id="gridCanvas"></canvas>
+                </div>
+            </section>
+
+            <section class="assessment-panel" aria-labelledby="assessmentTitle">
+                <div class="assessment-copy">
+                    <p class="section-label">EXPERT ASSESSMENT</p>
+                    <h2 id="assessmentTitle">Image-level classification</h2>
+                    <p>Select one before saving this image.</p>
+                </div>
+                <div class="classification-cards" role="radiogroup" aria-label="Image-level clinical classification">
+                    <button id="ischemicCard" class="classification-card ischemic-card" data-prediction="1" role="radio" aria-checked="false" type="button">
+                        <span class="classification-title">Ischemic</span>
+                        <span class="classification-description">The pattern supports ischemia.</span>
+                    </button>
+                    <button id="nonIschemicCard" class="classification-card nonischemic-card" data-prediction="0" role="radio" aria-checked="false" type="button">
+                        <span class="classification-title">Non-ischemic</span>
+                        <span class="classification-description">The pattern does not support ischemia.</span>
+                    </button>
+                </div>
+            </section>
+
+            <footer class="workflow-footer">
+                <button id="previousBtn" class="secondary-button navigation-button" type="button">Previous image</button>
+                <div class="progress-card" aria-live="polite">
+                    <span class="progress-label">Current image</span>
+                    <strong id="progressText">Loading…</strong>
+                    <span id="savedText" class="saved-text"></span>
+                </div>
+                <div class="footer-actions">
+                    <button id="previewBtn" class="preview-button" type="button">Preview final mask</button>
+                    <button id="nextBtn" class="primary-button navigation-button" type="button">Save &amp; next image</button>
+                </div>
+            </footer>
         </section>
-
-        <p class="annotation-hint">
-            The grid brush selects whole cells. The outer black region and fixed left-side notch are non-adherent: draw freely across them, but no annotation is displayed or saved there.
-        </p>
-
-        <section class="annotation-workspace" aria-label="PET polar map annotation canvas">
-            <div class="canvas-container">
-                <canvas id="backgroundCanvas"></canvas>
-                <canvas id="maskCanvas"></canvas>
-                <canvas id="guideCanvas"></canvas>
-                <canvas id="gridCanvas"></canvas>
-            </div>
-        </section>
-
-        <section class="assessment-panel" aria-labelledby="assessmentTitle">
-            <div class="assessment-copy">
-                <p class="section-label">EXPERT ASSESSMENT</p>
-                <h2 id="assessmentTitle">What is your image-level classification?</h2>
-                <p>Select one before saving this image. Your selection is stored with the grid mask.</p>
-            </div>
-            <div class="classification-cards" role="radiogroup" aria-label="Image-level clinical classification">
-                <button id="ischemicCard" class="classification-card ischemic-card" data-prediction="1" role="radio" aria-checked="false" type="button">
-                    <span class="classification-title">Ischemic</span>
-                    <span class="classification-description">The pattern supports ischemia.</span>
-                </button>
-                <button id="nonIschemicCard" class="classification-card nonischemic-card" data-prediction="0" role="radio" aria-checked="false" type="button">
-                    <span class="classification-title">Non-ischemic</span>
-                    <span class="classification-description">The pattern does not support ischemia.</span>
-                </button>
-            </div>
-        </section>
-
-        <footer class="workflow-footer">
-            <button id="previousBtn" class="secondary-button navigation-button" type="button">Previous image</button>
-            <div class="footer-actions">
-                <button id="previewBtn" class="preview-button" type="button">Preview final mask</button>
-                <button id="nextBtn" class="primary-button navigation-button" type="button">Save &amp; next image</button>
-            </div>
-        </footer>
     </main>
 
     <div id="previewModal" class="preview-modal" hidden role="dialog" aria-modal="true" aria-labelledby="previewTitle">
@@ -140,6 +151,6 @@
         </div>
     </div>
 
-    <script defer src="/static/script.js?v=20260812-2017"></script>
+    <script defer src="/static/script.js?v=20260812-2030"></script>
 </body>
 </html>
