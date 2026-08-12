@@ -46,13 +46,14 @@ body {
 }
 
 .control-label,
-.guide-controls label {
+.tool-group > label:not(.toggle-label):not(.colour-control) {
     font-weight: 600;
     font-size: 0.95rem;
 }
 
 .tool-button,
 .action-button,
+.preview-button,
 select {
     min-height: 38px;
     padding: 8px 14px;
@@ -66,7 +67,8 @@ select {
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.tool-button:hover:not(:disabled) {
+.tool-button:hover:not(:disabled),
+.preview-button:hover {
     background: var(--blue-soft);
 }
 
@@ -75,30 +77,30 @@ select {
     background: var(--blue);
 }
 
-.add-button {
+.brush-button {
     border-color: var(--green);
     color: var(--green);
 }
 
-.add-button:hover:not(:disabled) {
+.brush-button:hover:not(:disabled) {
     background: var(--green-soft);
 }
 
-.add-button.active {
+.brush-button.active {
     border-color: var(--green);
     background: var(--green);
 }
 
-.remove-button {
+.eraser-button {
     border-color: var(--red);
     color: var(--red);
 }
 
-.remove-button:hover:not(:disabled) {
+.eraser-button:hover:not(:disabled) {
     background: var(--red-soft);
 }
 
-.remove-button.active {
+.eraser-button.active {
     border-color: var(--red);
     background: var(--red);
 }
@@ -107,6 +109,35 @@ select {
 select:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+.tool-group select {
+    min-height: 34px;
+    padding: 5px 8px;
+    color: var(--text);
+    border-color: var(--grey-border);
+    font-weight: 500;
+}
+
+.colour-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 7px;
+    border: 1px solid var(--grey-border);
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: #fff;
+}
+
+.colour-control input[type="color"] {
+    width: 30px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    background: transparent;
 }
 
 .guide-controls {
@@ -120,6 +151,8 @@ select:disabled {
     gap: 6px;
     cursor: pointer;
     user-select: none;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .toggle-label input {
@@ -128,14 +161,6 @@ select:disabled {
     margin: 0;
     accent-color: var(--blue);
     cursor: pointer;
-}
-
-.guide-controls select {
-    min-height: 34px;
-    padding: 5px 8px;
-    color: var(--text);
-    border-color: var(--grey-border);
-    font-weight: 500;
 }
 
 .annotation-hint {
@@ -197,6 +222,8 @@ select:disabled {
 .bottom-toolbar {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
     margin-top: -24px;
 }
 
@@ -208,6 +235,97 @@ select:disabled {
 
 .action-button:hover {
     background: #0759c9;
+}
+
+.preview-button {
+    border-color: #5d3fd3;
+    color: #5d3fd3;
+}
+
+.preview-button:hover {
+    background: #f0ecff;
+}
+
+/* ── Final-mask preview ─────────────────────────────────────────────────── */
+.preview-modal[hidden] {
+    display: none;
+}
+
+.preview-modal {
+    position: fixed;
+    z-index: 20;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: auto;
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.preview-dialog {
+    width: min(1120px, 100%);
+    max-height: calc(100vh - 48px);
+    padding: 20px;
+    overflow: auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.preview-header h2 {
+    margin: 0 0 4px;
+    font-size: 1.25rem;
+}
+
+.preview-header p {
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.92rem;
+}
+
+.close-preview {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--grey-border);
+    border-radius: 5px;
+    color: #374151;
+    background: #fff;
+    font-size: 1.55rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.close-preview:hover {
+    background: #f3f4f6;
+}
+
+.preview-canvas-container {
+    max-height: 72vh;
+    overflow: auto;
+    border: 1px solid var(--grey-border);
+    background: #111;
+}
+
+#previewCanvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.preview-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
 }
 
 @media (max-width: 760px) {
@@ -222,4 +340,6 @@ select:disabled {
     .bottom-toolbar {
         margin-top: 12px;
     }
+    .preview-modal { padding: 10px; }
+    .preview-dialog { padding: 14px; }
 }
