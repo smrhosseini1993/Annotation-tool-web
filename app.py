@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import json
 import os
+import socket
+import sys
+import threading
+import webbrowser
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -16,22 +22,46 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / 'static'
-INPUT_DIR = STATIC_DIR / 'input_images'
-RESULTS_DIR = STATIC_DIR / 'results'
+BUNDLE_DIR = Path(getattr(sys, '_MEIPASS', BASE_DIR))
+STATIC_DIR = BUNDLE_DIR / 'static'
+GRID_DIMENSION = 128
+STANDARD_MAP_SIZE = 1024
+
+
+def running_packaged_app() -> bool:
+    """Return true when running from a PyInstaller Windows bundle."""
+    return bool(getattr(sys, 'frozen', False))
+
+
+def resolve_study_data_root() -> Path:
+    """Return the writable study-data directory.
+
+    Development keeps the existing static/input_images and static/results paths.
+    The packaged Windows Study Kit uses a Study_Data folder beside app_bundle so
+    experts can add images and collect results without writing into the bundle.
+    """
+    configured = os.environ.get('PET_MPI_STUDY_DATA_DIR')
+    if configured:
+        return Path(configured).expanduser().resolve()
+    if running_packaged_app():
+        return Path(sys.executable).resolve().parent / 'Study_Data'
+    return STATIC_DIR
+
+
+STUDY_DATA_DIR = resolve_study_data_root()
+INPUT_DIR = STUDY_DATA_DIR / 'input_images'
+RESULTS_DIR = STUDY_DATA_DIR / 'results'
 BINARY_DIR = RESULTS_DIR / 'binary_data'
 WORKING_OVERLAY_DIR = RESULTS_DIR / 'masked_images'
 FINAL_PREVIEW_DIR = RESULTS_DIR / 'final_preview_images'
 STATE_DIR = RESULTS_DIR / 'annotation_state'
 PREDICTIONS_FILE = RESULTS_DIR / 'predictions.txt'
 FIXED_STENCIL_PATH = STATIC_DIR / 'assets' / 'polar_map_paintable_stencil_1024.png'
-GRID_DIMENSION = 128
-STANDARD_MAP_SIZE = 1024
 
 for directory in [INPUT_DIR, BINARY_DIR, WORKING_OVERLAY_DIR, FINAL_PREVIEW_DIR, STATE_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path='/static')
 CORS(app)
 
 
@@ -48,12 +78,7 @@ def image_stem(filename: str) -> str:
 
 
 def write_binary_mask_from_state(stem: str, selected_cells: list[str]) -> None:
-    """Write the strict 0/1 mask from selected cells and the fixed stencil.
-
-    Generating this server-side avoids transferring a large 1024×1024 text
-    matrix from the browser and keeps the saved scientific mask independent of
-    visual brush colour.
-    """
+    """Write the strict 0/1 mask from selected cells and the fixed stencil."""
     if not FIXED_STENCIL_PATH.exists():
         raise FileNotFoundError('Fixed polar-map stencil is missing.')
 
@@ -141,7 +166,6 @@ def write_final_preview_from_state(stem: str, filename: str, selected_cells: lis
     image = Image.open(image_path).convert('RGBA')
     if image.size != (STANDARD_MAP_SIZE, STANDARD_MAP_SIZE):
         raise ValueError('Input polar-map image has the wrong dimensions.')
-    stencil = Image.open(FIXED_STENCIL_PATH).convert('L')
 
     alpha = annotation_alpha_from_state(selected_cells).point(lambda value: 118 if value else 0)
     overlay = Image.new('RGBA', image.size, (255, 255, 255, 0))
@@ -167,6 +191,21 @@ def write_prediction(image_index: int, prediction: str) -> None:
 @app.route('/')
 def serve_index():
     return send_from_directory(STATIC_DIR, 'index.html')
+
+
+@app.route('/health')
+def health_check():
+    """Expose a local-only marker used by the launcher to reuse a running app."""
+    return jsonify({'app': 'pet-mpi-annotation-tool', 'studyDataDir': str(STUDY_DATA_DIR)})
+
+
+@app.route('/study_images/<path:filename>')
+def serve_study_image(filename: str):
+    """Serve images from the writable Study_Data input directory."""
+    requested = secure_filename(filename)
+    if requested not in input_images():
+        return 'Unknown input image.', 404
+    return send_from_directory(INPUT_DIR, requested)
 
 
 @app.route('/static/images')
@@ -247,7 +286,7 @@ def save_annotation():
         'filename': filename,
         'prediction': prediction,
         'selectedCells': selected_cells,
-        'gridDimension': 128,
+        'gridDimension': GRID_DIMENSION,
     }
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     (STATE_DIR / f'{stem}_state.json').write_text(json.dumps(state), encoding='utf-8')
@@ -262,6 +301,7 @@ def save_binary():
     file = request.files.get('file')
     if not file:
         return 'No file part', 400
+    BINARY_DIR.mkdir(parents=True, exist_ok=True)
     file.save(BINARY_DIR / secure_filename(file.filename))
     return 'File saved', 200
 
@@ -271,6 +311,7 @@ def save_masked_image():
     file = request.files.get('file')
     if not file:
         return 'No file part', 400
+    WORKING_OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
     file.save(WORKING_OVERLAY_DIR / secure_filename(file.filename))
     return 'File saved', 200
 
@@ -285,7 +326,51 @@ def save_prediction():
     return 'Prediction saved', 200
 
 
-if __name__ == '__main__':
-    print(f'Current directory: {BASE_DIR}')
+def existing_local_study_url(start_port: int = 8765, attempts: int = 40) -> str | None:
+    """Return the URL of an already-running copy of this Study Kit, if present."""
+    for port in range(start_port, start_port + attempts):
+        url = f'http://127.0.0.1:{port}'
+        try:
+            with urlopen(f'{url}/health', timeout=0.15) as response:
+                status = json.loads(response.read().decode('utf-8'))
+        except (URLError, OSError, ValueError, json.JSONDecodeError):
+            continue
+        if status.get('app') == 'pet-mpi-annotation-tool' and status.get('studyDataDir') == str(STUDY_DATA_DIR):
+            return url
+    return None
+
+
+def find_available_port(start_port: int = 8765, attempts: int = 40) -> int:
+    """Find an available loopback port so the Study Kit avoids port conflicts."""
+    for port in range(start_port, start_port + attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+            candidate.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                candidate.bind(('127.0.0.1', port))
+            except OSError:
+                continue
+            return port
+    raise RuntimeError('Could not find an available local port for the annotation tool.')
+
+
+def open_local_browser(port: int) -> None:
+    webbrowser.open_new(f'http://127.0.0.1:{port}')
+
+
+def main() -> None:
+    existing_url = existing_local_study_url()
+    if existing_url:
+        print(f'Reopening the running annotation tool at {existing_url}')
+        webbrowser.open_new(existing_url)
+        return
+
+    port = find_available_port()
+    print(f'Study data folder: {STUDY_DATA_DIR}')
     print(f'Found images: {input_images()}')
-    app.run(port=5000, debug=True)
+    print(f'Opening annotation tool at http://127.0.0.1:{port}')
+    threading.Timer(0.8, open_local_browser, args=(port,)).start()
+    app.run(host='127.0.0.1', port=port, debug=False, use_reloader=False)
+
+
+if __name__ == '__main__':
+    main()

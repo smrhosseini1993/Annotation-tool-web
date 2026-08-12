@@ -5,3 +5,12 @@ __pycache__/
 static/input_images/*
 !static/input_images/.gitkeep
 static/results/
+
+# Generated Windows package artifacts and per-recipient local study data.
+build/
+dist/
+release/
+Study_Data/input_images/*
+!Study_Data/input_images/.gitkeep
+Study_Data/results/*
+!Study_Data/results/.gitkeep
