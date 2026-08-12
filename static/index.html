@@ -8,84 +8,126 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <main class="container">
-        <section class="toolbar" aria-label="Annotation controls">
-            <div class="tool-group" aria-label="Grid brush controls">
-                <span class="control-label">Grid brush:</span>
-                <button id="brushBtn" class="tool-button brush-button active" type="button">Brush</button>
-                <button id="eraserBtn" class="tool-button eraser-button" type="button">Eraser</button>
+    <main class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">PET-MPI CLINICAL ANNOTATION</p>
+                <h1>Decision-region annotation</h1>
+                <p class="header-description">Select grid cells that support the expert’s image-level assessment.</p>
+            </div>
+            <div class="progress-card" aria-live="polite">
+                <span class="progress-label">Current image</span>
+                <strong id="progressText">Loading…</strong>
+                <span id="savedText" class="saved-text"></span>
+            </div>
+        </header>
 
-                <label for="brushSize">Brush size:</label>
-                <select id="brushSize" aria-label="Grid brush size">
-                    <option value="1">1 × 1 cell (8 × 8 px)</option>
-                    <option value="2">2 × 2 cells (16 × 16 px)</option>
-                    <option value="4">4 × 4 cells (32 × 32 px)</option>
-                    <option value="8">8 × 8 cells (64 × 64 px)</option>
-                </select>
-
-                <label class="colour-control" for="brushColor">
-                    Brush colour
-                    <input id="brushColor" type="color" value="#0066ff" aria-label="Brush overlay colour">
-                </label>
-
-                <button id="undoBtn" class="tool-button" type="button">Undo</button>
-                <button id="redoBtn" class="tool-button" type="button">Redo</button>
+        <section class="control-panel" aria-label="Annotation controls">
+            <div class="control-section">
+                <p class="section-label">ANNOTATION</p>
+                <div class="control-row">
+                    <div class="segmented-control" aria-label="Grid brush mode">
+                        <button id="brushBtn" class="tool-button brush-button active" type="button">Brush</button>
+                        <button id="eraserBtn" class="tool-button eraser-button" type="button">Eraser</button>
+                    </div>
+                    <label class="select-control" for="brushSize">
+                        <span>Brush size</span>
+                        <select id="brushSize" aria-label="Grid brush size">
+                            <option value="1">1 × 1 cell · 8 px</option>
+                            <option value="2">2 × 2 cells · 16 px</option>
+                            <option value="4">4 × 4 cells · 32 px</option>
+                            <option value="8">8 × 8 cells · 64 px</option>
+                        </select>
+                    </label>
+                    <label class="colour-control" for="brushColor">
+                        <span>Brush colour</span>
+                        <input id="brushColor" type="color" value="#0066ff" aria-label="Brush overlay colour">
+                    </label>
+                    <button id="undoBtn" class="secondary-button" type="button">Undo</button>
+                    <button id="redoBtn" class="secondary-button" type="button">Redo</button>
+                </div>
             </div>
 
-            <div class="tool-group guide-controls" aria-label="Guide controls">
-                <label class="toggle-label" for="guideToggle">
-                    <input id="guideToggle" type="checkbox">
-                    Show 17-segment guide
-                </label>
-                <label for="guideStrength">Guide strength:</label>
-                <select id="guideStrength" disabled>
-                    <option value="faint">Faint</option>
-                    <option value="normal" selected>Normal</option>
-                    <option value="bold">Bold</option>
-                </select>
-                <label class="toggle-label grid-toggle" for="cellGridToggle">
-                    <input id="cellGridToggle" type="checkbox" checked>
-                    Show cell grid
-                </label>
-                <label class="colour-control" for="gridColor">
-                    Grid colour
-                    <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
-                </label>
+            <div class="control-divider"></div>
+
+            <div class="control-section">
+                <p class="section-label">VIEWING GUIDES</p>
+                <div class="control-row">
+                    <label class="toggle-control" for="cellGridToggle">
+                        <input id="cellGridToggle" type="checkbox" checked>
+                        <span>Cell grid</span>
+                    </label>
+                    <label class="colour-control" for="gridColor">
+                        <span>Grid colour</span>
+                        <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
+                    </label>
+                    <label class="toggle-control" for="guideToggle">
+                        <input id="guideToggle" type="checkbox">
+                        <span>17-segment guide</span>
+                    </label>
+                    <label class="select-control" for="guideStrength">
+                        <span>Guide strength</span>
+                        <select id="guideStrength" disabled>
+                            <option value="faint">Faint</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="bold">Bold</option>
+                        </select>
+                    </label>
+                    <label class="colour-control" for="guideColor">
+                        <span>Guide colour</span>
+                        <input id="guideColor" type="color" value="#ffffff" aria-label="17-segment guide colour">
+                    </label>
+                </div>
             </div>
         </section>
 
         <p class="annotation-hint">
-            Click or drag to select complete grid cells. The black outer ring and left-side notch are non-adherent: you can draw over them, but no annotation will appear or be saved there.
+            The grid brush selects whole cells. The outer black region and fixed left-side notch are non-adherent: draw freely across them, but no annotation is displayed or saved there.
         </p>
 
-        <div class="canvas-container" aria-label="PET polar map annotation canvas">
-            <canvas id="backgroundCanvas"></canvas>
-            <canvas id="maskCanvas"></canvas>
-            <canvas id="guideCanvas"></canvas>
-            <canvas id="gridCanvas"></canvas>
-        </div>
-
-        <section class="prediction-controls" aria-label="Clinical classification">
-            <label>
-                <input type="radio" name="prediction" value="1" required> Ischemic
-            </label>
-            <label>
-                <input type="radio" name="prediction" value="0" required> Non-ischemic
-            </label>
+        <section class="annotation-workspace" aria-label="PET polar map annotation canvas">
+            <div class="canvas-container">
+                <canvas id="backgroundCanvas"></canvas>
+                <canvas id="maskCanvas"></canvas>
+                <canvas id="guideCanvas"></canvas>
+                <canvas id="gridCanvas"></canvas>
+            </div>
         </section>
 
-        <div class="bottom-toolbar">
-            <button id="previewBtn" class="preview-button" type="button">Preview final mask</button>
-            <button id="nextBtn" class="action-button" type="button">NEXT</button>
-        </div>
+        <section class="assessment-panel" aria-labelledby="assessmentTitle">
+            <div class="assessment-copy">
+                <p class="section-label">EXPERT ASSESSMENT</p>
+                <h2 id="assessmentTitle">What is your image-level classification?</h2>
+                <p>Select one before saving this image. Your selection is stored with the grid mask.</p>
+            </div>
+            <div class="classification-cards" role="radiogroup" aria-label="Image-level clinical classification">
+                <button id="ischemicCard" class="classification-card ischemic-card" data-prediction="1" role="radio" aria-checked="false" type="button">
+                    <span class="classification-title">Ischemic</span>
+                    <span class="classification-description">The pattern supports ischemia.</span>
+                </button>
+                <button id="nonIschemicCard" class="classification-card nonischemic-card" data-prediction="0" role="radio" aria-checked="false" type="button">
+                    <span class="classification-title">Non-ischemic</span>
+                    <span class="classification-description">The pattern does not support ischemia.</span>
+                </button>
+            </div>
+        </section>
+
+        <footer class="workflow-footer">
+            <button id="previousBtn" class="secondary-button navigation-button" type="button">Previous image</button>
+            <div class="footer-actions">
+                <button id="previewBtn" class="preview-button" type="button">Preview final mask</button>
+                <button id="nextBtn" class="primary-button navigation-button" type="button">Save &amp; next image</button>
+            </div>
+        </footer>
     </main>
 
     <div id="previewModal" class="preview-modal" hidden role="dialog" aria-modal="true" aria-labelledby="previewTitle">
         <div class="preview-dialog">
             <div class="preview-header">
                 <div>
+                    <p class="eyebrow">MANUSCRIPT-STYLE OUTPUT</p>
                     <h2 id="previewTitle">Final mask preview</h2>
-                    <p>White is the final processed mask. Grid lines, guide lines, black ring, and notch are excluded.</p>
+                    <p>White is the final processed mask. The editing grid and guide are not included.</p>
                 </div>
                 <button id="closePreviewBtn" class="close-preview" type="button" aria-label="Close preview">×</button>
             </div>
@@ -93,11 +135,11 @@
                 <canvas id="previewCanvas"></canvas>
             </div>
             <div class="preview-footer">
-                <button id="returnToEditingBtn" class="tool-button" type="button">Return to editing</button>
+                <button id="returnToEditingBtn" class="secondary-button" type="button">Return to editing</button>
             </div>
         </div>
     </div>
 
-    <script defer src="/static/script.js"></script>
+    <script defer src="/static/script.js?v=20260812-2017"></script>
 </body>
 </html>
