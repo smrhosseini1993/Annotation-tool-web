@@ -10,7 +10,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ── Fixed grid / protected-area configuration ───────────────────────────
     const GRID_DIMENSION = 128;
-    const BLACK_PIXEL_LIMIT = 12;
+    const STANDARD_MAP_SIZE = 1024;
+    const FIXED_STENCIL_PATH = '/static/assets/polar_map_paintable_stencil_1024.png';
     const MIN_PAINTABLE_PIXELS_PER_CELL = 16;
     const MASK_ALPHA = 108; // uniform 42% opacity for drawing display
     const PREVIEW_WHITE_ALPHA = 118; // uniform white overlay in final preview
@@ -64,8 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAction = null;
     let hoverCell = null;
 
-    // 1 = paint allowed, 0 = fixed non-adherent black outer ring/notch.
+    // 1 = paint allowed by the fixed coordinate stencil, 0 = non-adherent.
     let paintablePixels = null;
+    let fixedStencilImage = null;
     let cellHasPaintableArea = new Uint8Array(GRID_DIMENSION * GRID_DIMENSION);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -154,11 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 bgCtx.clearRect(0, 0, image.width, image.height);
                 bgCtx.drawImage(image, 0, 0);
                 currentImage = image;
-                buildNonAdherentStencil();
-                redrawMask();
-                drawGuide();
-                drawCellGrid();
-                resolve();
+                loadFixedCoordinateStencil(image.width, image.height)
+                    .then(() => {
+                        redrawMask();
+                        drawGuide();
+                        drawCellGrid();
+                        resolve();
+                    })
+                    .catch(reject);
             };
             image.onerror = () => reject(new Error(`Could not load ${images[index]}`));
         });
@@ -178,39 +183,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  Non-adherent black outer-ring and notch stencil
+    //  Fixed coordinate-based non-adherent stencil
     // ════════════════════════════════════════════════════════════════════════
-    function buildNonAdherentStencil() {
-        const width = backgroundCanvas.width;
-        const height = backgroundCanvas.height;
-        const sourcePixels = bgCtx.getImageData(0, 0, width, height).data;
-        paintablePixels = new Uint8Array(width * height);
-        const validCounts = new Uint16Array(GRID_DIMENSION * GRID_DIMENSION);
+    /**
+     * Load the fixed 1024 × 1024 study-layout stencil.  It is a permanent
+     * coordinate template: white pixels are allowed tissue and black pixels
+     * are non-adherent (outer black region, left notch, white perimeter,
+     * labels, and fixed separator graphics). It never reads image colours.
+     */
+    function loadFixedCoordinateStencil(width, height) {
+        if (width !== STANDARD_MAP_SIZE || height !== STANDARD_MAP_SIZE) {
+            return Promise.reject(new Error(
+                `This annotation layout requires ${STANDARD_MAP_SIZE} × ${STANDARD_MAP_SIZE} polar maps; received ${width} × ${height}.`
+            ));
+        }
 
-        for (let y = 0; y < height; y++) {
-            const row = Math.min(GRID_DIMENSION - 1, Math.floor(y / cellHeight));
-            for (let x = 0; x < width; x++) {
-                const sourceIndex = (y * width + x) * 4;
-                const r = sourcePixels[sourceIndex];
-                const g = sourcePixels[sourceIndex + 1];
-                const b = sourcePixels[sourceIndex + 2];
-                const isProtectedBlack = r <= BLACK_PIXEL_LIMIT &&
-                    g <= BLACK_PIXEL_LIMIT &&
-                    b <= BLACK_PIXEL_LIMIT;
+        const useStencil = stencil => {
+            if (stencil.width !== width || stencil.height !== height) {
+                throw new Error('The fixed polar-map stencil does not match the input image dimensions.');
+            }
 
-                if (!isProtectedBlack) {
-                    paintablePixels[y * width + x] = 1;
+            const stencilCanvas = document.createElement('canvas');
+            stencilCanvas.width = width;
+            stencilCanvas.height = height;
+            const stencilCtx = stencilCanvas.getContext('2d');
+            stencilCtx.drawImage(stencil, 0, 0);
+            const stencilPixels = stencilCtx.getImageData(0, 0, width, height).data;
+
+            paintablePixels = new Uint8Array(width * height);
+            const validCounts = new Uint16Array(GRID_DIMENSION * GRID_DIMENSION);
+
+            for (let y = 0; y < height; y++) {
+                const row = Math.min(GRID_DIMENSION - 1, Math.floor(y / cellHeight));
+                for (let x = 0; x < width; x++) {
+                    const pixelIndex = y * width + x;
+                    const stencilIndex = pixelIndex * 4;
+                    // Stencil white = allowed. A threshold is applied only to
+                    // this static template asset, never to the PET image.
+                    const allowedByFixedCoordinate = stencilPixels[stencilIndex] >= 128;
+                    if (!allowedByFixedCoordinate) continue;
+
+                    paintablePixels[pixelIndex] = 1;
                     const col = Math.min(GRID_DIMENSION - 1, Math.floor(x / cellWidth));
                     validCounts[row * GRID_DIMENSION + col]++;
                 }
             }
+
+            for (let i = 0; i < validCounts.length; i++) {
+                cellHasPaintableArea[i] = validCounts[i] >= MIN_PAINTABLE_PIXELS_PER_CELL ? 1 : 0;
+            }
+        };
+
+        if (fixedStencilImage && fixedStencilImage.complete) {
+            try {
+                useStencil(fixedStencilImage);
+                return Promise.resolve();
+            } catch (error) {
+                return Promise.reject(error);
+            }
         }
 
-        // Reject cells made only of a very thin white boundary on black; retain
-        // usable partial cells at the true circular coloured-map boundary.
-        for (let i = 0; i < validCounts.length; i++) {
-            cellHasPaintableArea[i] = validCounts[i] >= MIN_PAINTABLE_PIXELS_PER_CELL ? 1 : 0;
-        }
+        return new Promise((resolve, reject) => {
+            const stencil = new Image();
+            stencil.onload = () => {
+                try {
+                    fixedStencilImage = stencil;
+                    useStencil(stencil);
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            stencil.onerror = () => reject(new Error('Could not load the fixed polar-map stencil asset.'));
+            stencil.src = FIXED_STENCIL_PATH;
+        });
     }
 
     function isSelectableCell(col, row) {
