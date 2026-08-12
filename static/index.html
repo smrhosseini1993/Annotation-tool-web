@@ -1,67 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>PET-image annotation</title>
+    <meta charset="UTF-8">
+    <title>PET polar-map annotation</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="container">
-        <div class="toolbar">
-            <div class="control-group">
-                <label for="brushSize">Brush size (pixels):</label>
-                <input type="range" id="brushSize" min="2" max="38" step="2" value="20">
-                <span id="brushSizeValue">20</span>
+    <main class="container">
+        <section class="toolbar" aria-label="Annotation controls">
+            <div class="tool-group" aria-label="Grid brush mode">
+                <span class="control-label">Grid brush:</span>
+                <button id="addCellsBtn" class="tool-button add-button active" type="button">Add cells</button>
+                <button id="removeCellsBtn" class="tool-button remove-button" type="button">Remove cells</button>
+                <button id="undoBtn" class="tool-button" type="button">Undo</button>
+                <button id="redoBtn" class="tool-button" type="button">Redo</button>
             </div>
-            <div class="tool-buttons">
-                <button id="brushBtn"      class="tool-button active">Brush</button>
-                <button id="fillPenBtn"    class="tool-button">Fill Pen</button>
-                <button id="polygonPenBtn" class="tool-button">Polygon Pen</button>
-                <button id="fillInBtn"     class="tool-button poly-action" style="display:none;">Fill In</button>
-                <button id="cancelPolyBtn" class="tool-button poly-action" style="display:none;">Cancel</button>
-                <button id="eraserBtn"     class="tool-button">Eraser</button>
-                <button id="undoBtn"       class="tool-button">Undo</button>
-                <button id="redoBtn"       class="tool-button">Redo</button>
+
+            <div class="tool-group guide-controls" aria-label="17-segment guide controls">
+                <label class="toggle-label" for="guideToggle">
+                    <input id="guideToggle" type="checkbox">
+                    Show 17-segment guide
+                </label>
+                <label for="guideStrength">Guide strength:</label>
+                <select id="guideStrength" disabled>
+                    <option value="faint">Faint</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="bold">Bold</option>
+                </select>
+                <label class="toggle-label grid-toggle" for="cellGridToggle">
+                    <input id="cellGridToggle" type="checkbox" checked>
+                    Show cell grid
+                </label>
             </div>
-        </div>
+        </section>
 
-        <!-- Brush-size preview (hidden while Fill Pen or Polygon Pen is active) -->
-        <canvas id="brushSizeCanvas" width="350" height="40"></canvas>
+        <p class="annotation-hint">
+            Click or drag to select complete <strong>8 × 8-pixel cells</strong>. The black outer ring and left-side notch are non-adherent: you can drag over them, but no annotation will appear or be saved there.
+        </p>
 
-        <!-- Hint shown when Fill Pen is active -->
-        <div id="fillPenHint" class="tool-hint" style="display:none;">
-            &#9998; <strong>Fill Pen:</strong> Draw a closed border around the region — it will be filled automatically when you release the mouse.
-        </div>
-
-        <!-- Hint shown when Polygon Pen is active -->
-        <div id="polygonPenHint" class="tool-hint poly-hint" style="display:none;">
-            &#9670; <strong>Polygon Pen:</strong>
-            <strong>Click</strong> to place anchor points around the region.
-            Click the <em>first anchor</em> (or press <strong>Fill In</strong>) to close &amp; fill.
-            After filling, <strong>drag</strong> any anchor to reshape.
-            <strong>Cancel</strong> discards the current polygon in progress.
-        </div>
-
-        <div class="canvas-container">
+        <div class="canvas-container" aria-label="PET polar map annotation canvas">
             <canvas id="backgroundCanvas"></canvas>
-            <canvas id="drawingCanvas"></canvas>
-            <!-- Overlay canvas for polygon anchors and rubber-band line -->
-            <canvas id="overlayCanvas"></canvas>
+            <canvas id="maskCanvas"></canvas>
+            <canvas id="guideCanvas"></canvas>
+            <canvas id="gridCanvas"></canvas>
         </div>
 
-        <div class="prediction-controls">
+        <section class="prediction-controls" aria-label="Clinical classification">
             <label>
                 <input type="radio" name="prediction" value="1" required> Ischemic
             </label>
             <label>
                 <input type="radio" name="prediction" value="0" required> Non-ischemic
             </label>
-        </div>
+        </section>
+
         <div class="bottom-toolbar">
-            <button id="nextBtn" class="action-button">NEXT</button>
+            <button id="nextBtn" class="action-button" type="button">NEXT</button>
         </div>
-    </div>
+    </main>
     <script defer src="/static/script.js"></script>
 </body>
 </html>

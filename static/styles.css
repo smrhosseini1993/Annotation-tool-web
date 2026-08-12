@@ -1,193 +1,225 @@
+:root {
+    --blue: #0d6efd;
+    --blue-soft: #e8f1ff;
+    --green: #198754;
+    --green-soft: #e7f6ee;
+    --red: #c92a2a;
+    --red-soft: #fff0f0;
+    --grey-border: #d7dce2;
+    --text: #1f2937;
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #f5f5f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    background: #f5f6f8;
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1240px;
     margin: 0 auto;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(31, 41, 55, 0.12);
 }
 
 .toolbar {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 18px;
+    margin-bottom: 10px;
+}
+
+.tool-group {
+    display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 10px;
 }
 
-#brushSize {
-    width: 200px;
-    margin: 0 10px;
+.control-label,
+.guide-controls label {
+    font-weight: 600;
+    font-size: 0.95rem;
 }
 
-#brushSizeCanvas {
-    margin-bottom: 10px;
-    border: 1px solid #ddd;
+.tool-button,
+.action-button,
+select {
+    min-height: 38px;
+    padding: 8px 14px;
+    border: 1px solid var(--blue);
+    border-radius: 5px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--blue);
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-/* ── Hint bars ──────────────────────────────────────────────────────────── */
-.tool-hint {
-    border-radius: 4px;
-    padding: 6px 12px;
-    margin-bottom: 10px;
-    font-size: 0.88rem;
+.tool-button:hover:not(:disabled) {
+    background: var(--blue-soft);
 }
 
-/* Fill Pen hint – amber */
-#fillPenHint {
-    background: #fff8e1;
-    border: 1px solid #ffe082;
-    color: #5d4037;
+.tool-button.active {
+    color: #fff;
+    background: var(--blue);
 }
 
-/* Polygon Pen hint – indigo tint */
-.poly-hint {
-    background: #f3f0ff;
-    border: 1px solid #b39ddb;
-    color: #311b92;
+.add-button {
+    border-color: var(--green);
+    color: var(--green);
 }
 
-/* ── Canvas stack ───────────────────────────────────────────────────────── */
+.add-button:hover:not(:disabled) {
+    background: var(--green-soft);
+}
+
+.add-button.active {
+    border-color: var(--green);
+    background: var(--green);
+}
+
+.remove-button {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.remove-button:hover:not(:disabled) {
+    background: var(--red-soft);
+}
+
+.remove-button.active {
+    border-color: var(--red);
+    background: var(--red);
+}
+
+.tool-button:disabled,
+select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.guide-controls {
+    padding-left: 18px;
+    border-left: 1px solid var(--grey-border);
+}
+
+.toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-label input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--blue);
+    cursor: pointer;
+}
+
+.guide-controls select {
+    min-height: 34px;
+    padding: 5px 8px;
+    color: var(--text);
+    border-color: var(--grey-border);
+    font-weight: 500;
+}
+
+.annotation-hint {
+    margin: 4px 0 14px;
+    padding: 9px 12px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: #364152;
+    background: #f0f6ff;
+    border: 1px solid #c9defb;
+    border-radius: 5px;
+}
+
 .canvas-container {
+    position: relative;
     width: 100%;
     overflow: auto;
-    border: 1px solid #ddd;
-    margin-bottom: 20px;
-    position: relative;
-}
-
-canvas {
-    display: block;
-    cursor: crosshair;
+    border: 1px solid var(--grey-border);
+    background: #111;
+    margin-bottom: 18px;
 }
 
 .canvas-container canvas {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
+    display: block;
 }
 
-#backgroundCanvas {
-    z-index: 1;
-}
-
-#drawingCanvas {
+#backgroundCanvas { z-index: 1; }
+#maskCanvas {
     z-index: 2;
+    cursor: crosshair;
 }
-
-/* Overlay canvas sits on top for polygon anchors & rubber-band line */
-#overlayCanvas {
+#guideCanvas {
     z-index: 3;
-    pointer-events: none; /* mouse events fall through to drawingCanvas */
+    pointer-events: none;
+}
+#gridCanvas {
+    z-index: 4;
+    pointer-events: none;
 }
 
-/* ── Bottom toolbar ─────────────────────────────────────────────────────── */
+.prediction-controls {
+    display: inline-flex;
+    gap: 22px;
+    align-items: center;
+    margin: 4px 0 0;
+}
+
+.prediction-controls label {
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.prediction-controls input {
+    margin-right: 5px;
+}
+
 .bottom-toolbar {
     display: flex;
     justify-content: flex-end;
-    align-items: center;
-    margin-top: 10px;
+    margin-top: -24px;
 }
 
 .action-button {
     padding: 10px 20px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
+    color: #fff;
+    background: var(--blue);
 }
 
 .action-button:hover {
-    background: #0056b3;
+    background: #0759c9;
 }
 
-/* ── Prediction controls ────────────────────────────────────────────────── */
-.prediction-controls {
-    margin: 10px 0;
-    text-align: left;
-    float: left;
-    clear: both;
+@media (max-width: 760px) {
+    body { padding: 10px; }
+    .container { padding: 14px; }
+    .guide-controls {
+        width: 100%;
+        padding: 10px 0 0;
+        border-top: 1px solid var(--grey-border);
+        border-left: 0;
+    }
+    .bottom-toolbar {
+        margin-top: 12px;
+    }
 }
-
-.prediction-controls label {
-    margin: 0 20px 0 0;
-    cursor: pointer;
-    display: inline-block;
-}
-
-.prediction-controls input[type="radio"] {
-    margin-right: 5px;
-}
-
-/* ── Tool buttons ───────────────────────────────────────────────────────── */
-.tool-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-left: 20px;
-}
-
-.tool-button {
-    padding: 8px 16px;
-    border: 1px solid #007bff;
-    background: white;
-    color: #007bff;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.tool-button:hover {
-    background: #e6f0ff;
-}
-
-.tool-button.active {
-    background: #007bff;
-    color: white;
-}
-
-.tool-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Fill Pen – green accent */
-#fillPenBtn {
-    border-color: #28a745;
-    color: #28a745;
-}
-#fillPenBtn:hover  { background: #e6f7ec; }
-#fillPenBtn.active { background: #28a745; color: white; border-color: #28a745; }
-
-/* Polygon Pen – indigo accent */
-#polygonPenBtn {
-    border-color: #6f42c1;
-    color: #6f42c1;
-}
-#polygonPenBtn:hover  { background: #f0ebff; }
-#polygonPenBtn.active { background: #6f42c1; color: white; border-color: #6f42c1; }
-
-/* Fill In – teal, only shown during polygon placement */
-#fillInBtn {
-    border-color: #17a2b8;
-    color: #17a2b8;
-    font-weight: bold;
-}
-#fillInBtn:hover  { background: #e0f7fa; }
-#fillInBtn.active { background: #17a2b8; color: white; border-color: #17a2b8; }
-
-/* Cancel – red-ish, only shown during polygon placement */
-#cancelPolyBtn {
-    border-color: #dc3545;
-    color: #dc3545;
-}
-#cancelPolyBtn:hover { background: #fdecea; }
