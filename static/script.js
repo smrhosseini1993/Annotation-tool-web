@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadImage(0);
         } catch (error) {
             console.error(error);
-            alert('Could not load the input images. Check static/input_images and restart the app.');
+            alert('Could not load the input images. Check Study_Data/input_images and restart the app.');
         }
     }
 
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadBackgroundImage(filename) {
         return new Promise((resolve, reject) => {
             const image = new Image();
-            image.src = `/static/input_images/${encodeURIComponent(filename)}`;
+            image.src = `/study_images/${encodeURIComponent(filename)}`;
             image.onload = () => resolve(image);
             image.onerror = () => reject(new Error('The polar-map image could not be opened.'));
         });
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bgCtx.fillRect(0, 0, 800, 380);
         bgCtx.fillStyle = '#ffffff';
         bgCtx.font = '22px system-ui';
-        bgCtx.fillText('No input images found in static/input_images.', 215, 195);
+        bgCtx.fillText('No input images found in Study_Data/input_images.', 170, 195);
         progressText.textContent = 'No images';
         savedText.textContent = '';
         previousBtn.disabled = true;
