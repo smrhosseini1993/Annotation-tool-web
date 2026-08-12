@@ -24,61 +24,58 @@
 
             <section class="sidebar-section" aria-label="Grid annotation controls">
                 <p class="section-label">ANNOTATION</p>
-                <div class="sidebar-controls">
-                    <div class="segmented-control full-width" aria-label="Grid brush mode">
+                <div class="compact-toolbar" aria-label="Grid brush controls">
+                    <div class="segmented-control compact-mode" aria-label="Grid brush mode">
                         <button id="brushBtn" class="tool-button brush-button active" type="button">Brush</button>
                         <button id="eraserBtn" class="tool-button eraser-button" type="button">Eraser</button>
                     </div>
-
-                    <label class="select-control full-width" for="brushSize">
-                        <span>Brush size</span>
+                    <label class="compact-select" title="Brush size">
                         <select id="brushSize" aria-label="Grid brush size">
-                            <option value="1">1 × 1 cell · 8 px</option>
-                            <option value="2">2 × 2 cells · 16 px</option>
-                            <option value="4">4 × 4 cells · 32 px</option>
-                            <option value="8">8 × 8 cells · 64 px</option>
+                            <option value="1">1 (8 px)</option>
+                            <option value="2">2 (16 px)</option>
+                            <option value="4">4 (32 px)</option>
+                            <option value="8">8 (64 px)</option>
                         </select>
                     </label>
-
-                    <label class="colour-control full-width" for="brushColor">
-                        <span>Brush colour</span>
+                    <label class="colour-swatch" title="Change brush colour">
                         <input id="brushColor" type="color" value="#0066ff" aria-label="Brush overlay colour">
                     </label>
+                </div>
 
-                    <div class="history-controls full-width" aria-label="Annotation history">
-                        <button id="undoBtn" class="secondary-button" type="button">Undo</button>
-                        <button id="redoBtn" class="secondary-button" type="button">Redo</button>
-                    </div>
+                <div class="history-controls compact-history" aria-label="Annotation history">
+                    <button id="undoBtn" class="secondary-button" type="button">Undo</button>
+                    <button id="redoBtn" class="secondary-button" type="button">Redo</button>
                 </div>
             </section>
 
             <section class="sidebar-section guides-section" aria-label="Viewing guide controls">
                 <p class="section-label">VIEWING GUIDES</p>
-                <div class="sidebar-controls">
-                    <label class="toggle-control full-width" for="cellGridToggle">
-                        <input id="cellGridToggle" type="checkbox" checked>
-                        <span>Show cell grid</span>
-                    </label>
-                    <label class="colour-control full-width" for="gridColor">
-                        <span>Grid colour</span>
-                        <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
-                    </label>
-                    <label class="toggle-control full-width" for="guideToggle">
-                        <input id="guideToggle" type="checkbox">
-                        <span>Show 17-segment guide</span>
-                    </label>
-                    <label class="select-control full-width" for="guideStrength">
-                        <span>Guide strength</span>
-                        <select id="guideStrength" disabled>
-                            <option value="faint">Faint</option>
-                            <option value="normal" selected>Normal</option>
-                            <option value="bold">Bold</option>
-                        </select>
-                    </label>
-                    <label class="colour-control full-width" for="guideColor">
-                        <span>Guide colour</span>
-                        <input id="guideColor" type="color" value="#ffffff" aria-label="17-segment guide colour">
-                    </label>
+                <div class="compact-guide-controls">
+                    <div class="guide-row">
+                        <label class="compact-toggle" for="cellGridToggle">
+                            <input id="cellGridToggle" type="checkbox" checked>
+                            <span>Grid</span>
+                        </label>
+                        <label class="colour-swatch" title="Change grid colour">
+                            <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
+                        </label>
+                    </div>
+                    <div class="guide-row">
+                        <label class="compact-toggle" for="guideToggle">
+                            <input id="guideToggle" type="checkbox">
+                            <span>17-segment</span>
+                        </label>
+                        <label class="compact-select guide-strength" title="Guide strength">
+                            <select id="guideStrength" aria-label="Guide strength" disabled>
+                                <option value="faint">Faint</option>
+                                <option value="normal" selected>Normal</option>
+                                <option value="bold">Bold</option>
+                            </select>
+                        </label>
+                        <label class="colour-swatch" title="Change 17-segment guide colour">
+                            <input id="guideColor" type="color" value="#ffffff" aria-label="17-segment guide colour">
+                        </label>
+                    </div>
                 </div>
             </section>
 
@@ -142,6 +139,6 @@
         </div>
     </div>
 
-    <script defer src="/static/script.js?v=20260812-2045"></script>
+    <script defer src="/static/script.js?v=20260812-2100"></script>
 </body>
 </html>
