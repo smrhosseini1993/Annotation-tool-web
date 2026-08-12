@@ -117,7 +117,7 @@ button { cursor: pointer; }
 }
 
 .sidebar-section {
-    padding: 17px 0;
+    padding: 12px 0;
     border-bottom: 1px solid var(--line);
 }
 
@@ -225,6 +225,103 @@ button { cursor: pointer; }
     gap: 8px;
 }
 
+/* Compact workstation-style control rows */
+.compact-toolbar {
+    display: grid;
+    grid-template-columns: minmax(116px, 1fr) 88px 32px;
+    align-items: center;
+    gap: 6px;
+}
+
+.compact-mode { min-width: 0; }
+
+.compact-toolbar .tool-button,
+.compact-history .secondary-button {
+    min-height: 31px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+}
+
+.compact-select {
+    display: block;
+    min-width: 0;
+}
+
+.compact-select select {
+    width: 100%;
+    min-height: 31px;
+    padding: 4px 7px;
+    border: 1px solid #c2cedb;
+    border-radius: 6px;
+    color: #344256;
+    background: #fff;
+    font-size: 0.75rem;
+    font-weight: 720;
+}
+
+.colour-swatch {
+    display: block;
+    width: 32px;
+    height: 31px;
+}
+
+.colour-swatch input[type="color"] {
+    display: block;
+    width: 32px;
+    height: 31px;
+    padding: 2px;
+    border: 1px solid #c2cedb;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.compact-history {
+    width: 148px;
+    margin-top: 7px;
+    gap: 6px;
+}
+
+.compact-guide-controls {
+    display: grid;
+    gap: 6px;
+}
+
+.guide-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 6px;
+}
+
+.guide-row + .guide-row {
+    grid-template-columns: minmax(0, 1fr) 78px 32px;
+}
+
+.compact-toggle {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 6px;
+    min-height: 31px;
+    padding: 0 8px;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    color: #344256;
+    background: #fff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+}
+
+.compact-toggle input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--blue);
+}
+
 .assessment-panel {
     display: grid;
     gap: 10px;
@@ -299,7 +396,7 @@ button { cursor: pointer; }
 .primary-button:disabled { opacity: 0.48; cursor: not-allowed; }
 
 .annotation-hint {
-    margin: 15px 0 0;
+    margin: 12px 0 0;
     padding: 10px 11px;
     border: 1px solid #cfe0f7;
     border-radius: 8px;
