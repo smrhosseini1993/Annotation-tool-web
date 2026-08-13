@@ -692,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadImage(currentImageIndex + 1);
         } else {
             nextBtn.textContent = 'Saved';
+            alert('All images have been saved. The session is complete. Your results are available in Study_Data/results.');
             setTimeout(updateProgress, 900);
         }
     }
