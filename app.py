@@ -26,8 +26,20 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 BUNDLE_DIR = Path(getattr(sys, '_MEIPASS', BASE_DIR))
 STATIC_DIR = BUNDLE_DIR / 'static'
+VERSION_FILE = BUNDLE_DIR / 'VERSION'
 GRID_DIMENSION = 128
 STANDARD_MAP_SIZE = 1024
+
+
+def load_app_version() -> str:
+    """Read the version bundled with this exact app build."""
+    try:
+        return VERSION_FILE.read_text(encoding='utf-8').strip() or 'development'
+    except OSError:
+        return 'development'
+
+
+APP_VERSION = load_app_version()
 
 
 def running_packaged_app() -> bool:
@@ -242,7 +254,17 @@ def serve_index():
 @app.route('/health')
 def health_check():
     """Expose a local-only marker used by the launcher to reuse a running app."""
-    return jsonify({'app': 'pet-mpi-annotation-tool', 'studyDataDir': str(STUDY_DATA_DIR)})
+    return jsonify({
+        'app': 'pet-mpi-annotation-tool',
+        'version': APP_VERSION,
+        'studyDataDir': str(STUDY_DATA_DIR),
+    })
+
+
+@app.route('/app_info')
+def app_info():
+    """Return the exact visible Study Kit version."""
+    return jsonify({'version': APP_VERSION})
 
 
 @app.route('/study_images/<path:filename>')
@@ -402,6 +424,7 @@ def main() -> None:
         return
 
     port = find_available_port()
+    print(f'PET-MPI Annotation Study Kit v{APP_VERSION}')
     print(f'Study data folder: {STUDY_DATA_DIR}')
     print(f'Found images: {len(session_images())}')
     print(f'Opening annotation tool at http://127.0.0.1:{port}')

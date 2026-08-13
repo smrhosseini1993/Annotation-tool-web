@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Controls ────────────────────────────────────────────────────────────
     const progressText = document.getElementById('progressText');
     const savedText = document.getElementById('savedText');
+    const appVersion = document.getElementById('appVersion');
     const brushBtn = document.getElementById('brushBtn');
     const eraserBtn = document.getElementById('eraserBtn');
     const brushSizeInput = document.getElementById('brushSize');
@@ -105,6 +106,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function currentFilename() {
         return images[currentImageIndex] || null;
+    }
+
+    async function loadAppVersion() {
+        try {
+            const response = await fetch('/app_info');
+            if (!response.ok) throw new Error('Version information is unavailable.');
+            const info = await response.json();
+            appVersion.textContent = `v${info.version || 'development'}`;
+            appVersion.title = `PET-MPI Annotation Study Kit v${info.version || 'development'}`;
+        } catch (error) {
+            appVersion.textContent = 'v?';
+            appVersion.title = 'Study Kit version unavailable';
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -778,5 +792,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setActiveMode('brush');
     updateHistoryButtons();
+    loadAppVersion();
     initialiseApp();
 });

@@ -70,12 +70,32 @@ button { cursor: pointer; }
     letter-spacing: 0.1em;
 }
 
+.title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
 .sidebar-header h1 {
     margin: 0;
     color: #18243a;
     font-size: 1.32rem;
     line-height: 1.12;
     letter-spacing: -0.025em;
+}
+
+.app-version {
+    flex: 0 0 auto;
+    padding: 3px 6px;
+    border: 1px solid #cadbf3;
+    border-radius: 999px;
+    color: #345374;
+    background: #f1f6fd;
+    font-size: 0.64rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .sidebar-header p:not(.eyebrow) {

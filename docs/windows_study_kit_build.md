@@ -7,8 +7,9 @@ The Windows Study Kit is designed for clinical experts who should not need VS Co
 1. Open the repository’s **Actions** tab on GitHub.
 2. Select **Build Windows Study Kit**.
 3. Select **Run workflow** and run it from the required version of the `main` branch.
-4. When the workflow completes, download the artifact named **PET-MPI-Annotation-Study-Windows**.
-5. Extract the downloaded archive. The extracted `PET-MPI-Annotation-Study-Windows` folder is the package to provide to one expert for one session.
+4. Open the newest completed workflow run and download its **PET-MPI-Annotation-Study-Windows** artifact.
+5. Extract the downloaded archive. Inside it, the Study Kit folder includes the exact version, for example `PET-MPI-Annotation-Study-Windows-v1.3.0`.
+6. Confirm the version by opening the package's `VERSION.txt` file or checking the version badge in the app's upper-left corner.
 
 The workflow uses a Windows runner because a Windows executable must be built on Windows.
 
@@ -47,7 +48,7 @@ At the end of the session, collect the complete folder:
 Study_Data/results/
 ```
 
-It contains binary masks, working overlays, white final-preview images, saved annotation state, and `predictions.txt`.
+It contains binary masks, working overlays, white final-preview images, saved annotation state, and `classifications.csv`. The CSV has the filename-linked image-level classification code for each saved image.
 
 > Do not mix different experts or different sessions in one Study Kit folder. Each expert/session must retain its own independent `Study_Data/results` folder.
 
@@ -63,5 +64,5 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 The finished package is created in:
 
 ```text
-release/PET-MPI-Annotation-Study-Windows/
+release/PET-MPI-Annotation-Study-Windows-v<version>/
 ```
