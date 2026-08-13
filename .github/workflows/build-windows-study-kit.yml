@@ -2,22 +2,37 @@ name: Build Windows Study Kit
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'study-kit-v*'
+
+permissions:
+  contents: read
 
 jobs:
   build-windows-study-kit:
+    name: Build Windows Study Kit
     runs-on: windows-latest
 
     steps:
-      - name: Check out source
+      - name: Check out the selected branch revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Read package identity
+        id: package
+        shell: pwsh
+        run: |
+          $version = (Get-Content -Raw VERSION).Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'VERSION must not be empty.' }
+          $shortSha = '${{ github.sha }}'.Substring(0, 7)
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "short_sha=$shortSha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Building PET-MPI Annotation Study Kit v$version from commit $shortSha"
 
       - name: Build the packaged Study Kit
         shell: pwsh
@@ -25,9 +40,19 @@ jobs:
           Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
           .\packaging\windows\build_study_kit.ps1
 
-      - name: Upload Windows Study Kit
+      - name: Write build identity into the download
+        shell: pwsh
+        run: |
+          $identity = @(
+            "PET-MPI Annotation Study Kit v${{ steps.package.outputs.version }}",
+            "Git commit: ${{ github.sha }}",
+            "GitHub Actions run: ${{ github.run_number }}"
+          )
+          $identity | Set-Content -Encoding utf8 release\PET-MPI-Annotation-Study-Windows\BUILD_INFO.txt
+
+      - name: Upload versioned Windows Study Kit
         uses: actions/upload-artifact@v4
         with:
-          name: PET-MPI-Annotation-Study-Windows
+          name: PET-MPI-Annotation-Study-Windows-v${{ steps.package.outputs.version }}-${{ steps.package.outputs.short_sha }}-run${{ github.run_number }}
           path: release/PET-MPI-Annotation-Study-Windows
           if-no-files-found: error
