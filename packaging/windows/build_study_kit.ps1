@@ -2,9 +2,13 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $python = if ($env:PYTHON) { $env:PYTHON } else { 'python' }
+$version = (Get-Content -Raw (Join-Path $root 'VERSION')).Trim()
+if ([string]::IsNullOrWhiteSpace($version)) { throw 'VERSION must not be empty.' }
+$kitName = "PET-MPI-Annotation-Study-Windows-v$version"
 $buildDir = Join-Path $root 'build'
 $distDir = Join-Path $root 'dist\PET-MPI-Annotation-Tool'
-$releaseDir = Join-Path $root 'release\PET-MPI-Annotation-Study-Windows'
+$releaseRoot = Join-Path $root 'release\PET-MPI-Annotation-Study-Windows'
+$releaseDir = Join-Path $releaseRoot $kitName
 
 Write-Host 'Installing build dependencies...'
 & $python -m pip install --upgrade pip
@@ -22,6 +26,7 @@ Write-Host 'Creating the Windows application bundle...'
     --windowed `
     --name 'PET-MPI-Annotation-Tool' `
     --add-data "$root\static;static" `
+    --add-data "$root\VERSION;." `
     --collect-all flask `
     --collect-all flask_cors `
     --collect-all PIL `
@@ -43,7 +48,9 @@ Copy-Item -Force (Join-Path $PSScriptRoot 'START_HERE.txt') $releaseDir
 Copy-Item -Force (Join-Path $PSScriptRoot 'Start Annotation Tool.bat') $releaseDir
 Copy-Item -Force (Join-Path $PSScriptRoot 'Close Annotation Tool.bat') $releaseDir
 Copy-Item -Force (Join-Path $PSScriptRoot 'STUDY_DATA_README.txt') $studyData
+Copy-Item -Force (Join-Path $root 'VERSION') (Join-Path $releaseDir 'VERSION.txt')
 
 Write-Host ''
+Write-Host "Study Kit version: v$version" -ForegroundColor Green
 Write-Host "Study Kit created at: $releaseDir" -ForegroundColor Green
 Write-Host 'Zip this folder or distribute it as a folder. Do not put study images in app_bundle.'
