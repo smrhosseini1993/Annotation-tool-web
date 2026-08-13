@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
+import random
 import socket
 import sys
 import threading
@@ -55,7 +57,8 @@ BINARY_DIR = RESULTS_DIR / 'binary_data'
 WORKING_OVERLAY_DIR = RESULTS_DIR / 'masked_images'
 FINAL_PREVIEW_DIR = RESULTS_DIR / 'final_preview_images'
 STATE_DIR = RESULTS_DIR / 'annotation_state'
-PREDICTIONS_FILE = RESULTS_DIR / 'predictions.txt'
+CLASSIFICATIONS_FILE = RESULTS_DIR / 'classifications.csv'
+SESSION_MANIFEST_FILE = STUDY_DATA_DIR / 'session_manifest.json'
 FIXED_STENCIL_PATH = STATIC_DIR / 'assets' / 'polar_map_paintable_stencil_1024.png'
 
 for directory in [INPUT_DIR, BINARY_DIR, WORKING_OVERLAY_DIR, FINAL_PREVIEW_DIR, STATE_DIR]:
@@ -66,11 +69,41 @@ CORS(app)
 
 
 def input_images() -> list[str]:
-    """Return supported input images in deterministic filename order."""
+    """Return supported input images in deterministic filename order.
+
+    This source order is used for the filename-aligned classification CSV. The
+    display order is handled separately by session_images().
+    """
     return sorted(
         path.name for path in INPUT_DIR.iterdir()
         if path.is_file() and path.suffix.lower() in {'.jpg', '.jpeg', '.png'}
     )
+
+
+def session_images() -> list[str]:
+    """Return one persistent randomised image order for this Study_Data folder."""
+    source_images = input_images()
+    if not source_images:
+        return []
+
+    if SESSION_MANIFEST_FILE.exists():
+        try:
+            manifest = json.loads(SESSION_MANIFEST_FILE.read_text(encoding='utf-8'))
+            saved_order = manifest.get('image_order', [])
+            if isinstance(saved_order, list) and set(saved_order) == set(source_images) and len(saved_order) == len(source_images):
+                return saved_order
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    random_order = source_images.copy()
+    random.SystemRandom().shuffle(random_order)
+    manifest = {
+        'image_order': random_order,
+        'source_filenames': source_images,
+        'image_count': len(source_images),
+    }
+    SESSION_MANIFEST_FILE.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    return random_order
 
 
 def image_stem(filename: str) -> str:
@@ -174,18 +207,31 @@ def write_final_preview_from_state(stem: str, filename: str, selected_cells: lis
     Image.alpha_composite(image, overlay).save(FINAL_PREVIEW_DIR / f'{stem}_final_preview.png')
 
 
-def write_prediction(image_index: int, prediction: str) -> None:
-    """Replace the image-level class at its original dataset index."""
-    predictions: list[str] = []
-    if PREDICTIONS_FILE.exists():
-        predictions = PREDICTIONS_FILE.read_text(encoding='utf-8').splitlines()
+def write_classification(filename: str, prediction: str) -> None:
+    """Write a filename-linked two-column CSV, replacing a prior reading safely."""
+    existing: dict[str, str] = {}
+    if CLASSIFICATIONS_FILE.exists():
+        try:
+            with CLASSIFICATIONS_FILE.open('r', encoding='utf-8', newline='') as source:
+                for row in csv.DictReader(source):
+                    name = row.get('image_filename')
+                    code = row.get('classification_code')
+                    if name and code in {'0', '1'}:
+                        existing[name] = code
+        except OSError:
+            pass
 
-    while len(predictions) <= image_index:
-        predictions.append('')
-    predictions[image_index] = prediction
-
+    existing[filename] = prediction
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    PREDICTIONS_FILE.write_text('\n'.join(predictions) + '\n', encoding='utf-8')
+    with CLASSIFICATIONS_FILE.open('w', encoding='utf-8', newline='') as output:
+        writer = csv.DictWriter(output, fieldnames=['image_filename', 'classification_code'])
+        writer.writeheader()
+        for image_name in input_images():
+            if image_name in existing:
+                writer.writerow({
+                    'image_filename': image_name,
+                    'classification_code': existing[image_name],
+                })
 
 
 @app.route('/')
@@ -210,7 +256,7 @@ def serve_study_image(filename: str):
 
 @app.route('/static/images')
 def list_images():
-    return jsonify(input_images())
+    return jsonify(session_images())
 
 
 @app.route('/annotation_status')
@@ -262,7 +308,7 @@ def save_annotation():
     try:
         filename = secure_filename(metadata['filename'])
         prediction = str(metadata['prediction'])
-        image_index = int(metadata['imageIndex'])
+        image_index = int(metadata.get('imageIndex', 0))
         selected_cells = metadata['selectedCells']
         brush_colour = metadata.get('brushColour', '#0066ff')
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -287,10 +333,11 @@ def save_annotation():
         'prediction': prediction,
         'selectedCells': selected_cells,
         'gridDimension': GRID_DIMENSION,
+        'displayedOrder': image_index + 1,
     }
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     (STATE_DIR / f'{stem}_state.json').write_text(json.dumps(state), encoding='utf-8')
-    write_prediction(image_index, prediction)
+    write_classification(filename, prediction)
 
     return jsonify({'message': 'Annotation saved.', 'replacedExisting': True})
 
@@ -314,16 +361,6 @@ def save_masked_image():
     WORKING_OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
     file.save(WORKING_OVERLAY_DIR / secure_filename(file.filename))
     return 'File saved', 200
-
-
-@app.route('/save_prediction', methods=['POST'])
-def save_prediction():
-    data = request.get_json(silent=True) or {}
-    try:
-        write_prediction(int(data['imageIndex']), str(data['prediction']))
-    except (KeyError, TypeError, ValueError):
-        return 'Invalid prediction payload', 400
-    return 'Prediction saved', 200
 
 
 def existing_local_study_url(start_port: int = 8765, attempts: int = 40) -> str | None:
@@ -366,7 +403,7 @@ def main() -> None:
 
     port = find_available_port()
     print(f'Study data folder: {STUDY_DATA_DIR}')
-    print(f'Found images: {input_images()}')
+    print(f'Found images: {len(session_images())}')
     print(f'Opening annotation tool at http://127.0.0.1:{port}')
     threading.Timer(0.8, open_local_browser, args=(port,)).start()
     app.run(host='127.0.0.1', port=port, debug=False, use_reloader=False)

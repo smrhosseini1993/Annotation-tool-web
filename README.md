@@ -13,15 +13,17 @@ The interface includes a Brush/Eraser, four grid-brush sizes, per-user brush/gri
 For every saved image, the application writes the following files into the active study-data folder:
 
 ```text
-results/
-├── binary_data/           # Strict 1024 × 1024 0/1 masks
-├── masked_images/         # Transparent clinician-colour overlays
-├── final_preview_images/  # Original map plus clean white mask overlay
-├── annotation_state/      # Saved grid cells and image-level class
-└── predictions.txt        # Ischemic/non-ischemic label per input image
+Study_Data/
+├── session_manifest.json  # Persistent random display order for this session
+└── results/
+    ├── binary_data/           # Strict 1024 × 1024 0/1 masks
+    ├── masked_images/         # Transparent clinician-colour overlays
+    ├── final_preview_images/  # Original map plus clean white mask overlay
+    ├── annotation_state/      # Saved grid cells and image-level class
+    └── classifications.csv    # image_filename and classification_code (0/1)
 ```
 
-Saving an image after revisiting it intentionally replaces its earlier outputs.
+Saving an image after revisiting it intentionally replaces its earlier outputs. Each new Study_Data folder receives a random image order that is saved in `session_manifest.json`; restarting the app within that session preserves the same order.
 
 ## Development use (macOS/Linux/Windows with Python)
 
