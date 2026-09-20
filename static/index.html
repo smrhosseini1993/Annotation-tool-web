@@ -9,11 +9,11 @@
 </head>
 <body>
     <main class="app-shell">
-        <aside class="control-sidebar" aria-label="Study View annotation controls">
+        <aside class="control-sidebar" aria-label="Medical image annotation controls">
             <header class="sidebar-header">
-                <p class="eyebrow">MEDICAL IMAGE ANNOTATION · PET-MPI STUDY</p>
+                <p class="eyebrow">MEDICAL IMAGE ANNOTATION</p>
                 <div class="title-row">
-                    <h1>Decision-region annotation</h1>
+                    <h1>Structured region annotation</h1>
                     <span id="appVersion" class="app-version" aria-label="Study Kit version">v…</span>
                 </div>
             </header>
@@ -33,11 +33,11 @@
                     </div>
                     <label class="compact-select" title="Brush size">
                         <select id="brushSize" aria-label="Grid brush size">
-                            <option value="1">1 (8 px)</option>
-                            <option value="2">2 (16 px)</option>
-                            <option value="4">4 (32 px)</option>
-                            <option value="8">8 (64 px)</option>
-                            <option value="16">16 (128 px)</option>
+                            <option value="1">1 cell</option>
+                            <option value="2">2 × 2</option>
+                            <option value="4">4 × 4</option>
+                            <option value="8">8 × 8</option>
+                            <option value="16">16 × 16</option>
                         </select>
                     </label>
                     <label class="colour-swatch" title="Change brush colour">
@@ -51,8 +51,8 @@
                 </div>
             </section>
 
-            <section class="sidebar-section guides-section" aria-label="Viewing guide controls">
-                <p class="section-label">VIEWING GUIDES</p>
+            <section class="sidebar-section" aria-label="Viewing guide controls">
+                <p class="section-label">VIEWING GUIDE</p>
                 <div class="compact-guide-controls">
                     <div class="guide-row">
                         <label class="compact-toggle" for="cellGridToggle">
@@ -63,57 +63,40 @@
                             <input id="gridColor" type="color" value="#ffffff" aria-label="Grid line colour">
                         </label>
                     </div>
-                    <div class="guide-row">
-                        <label class="compact-toggle" for="guideToggle">
-                            <input id="guideToggle" type="checkbox">
-                            <span>17-segment</span>
-                        </label>
-                        <label class="compact-select guide-strength" title="Guide strength">
-                            <select id="guideStrength" aria-label="Guide strength" disabled>
-                                <option value="faint">Faint</option>
-                                <option value="normal" selected>Normal</option>
-                                <option value="bold">Bold</option>
-                            </select>
-                        </label>
-                        <label class="colour-swatch" title="Change 17-segment guide colour">
-                            <input id="guideColor" type="color" value="#ffffff" aria-label="17-segment guide colour">
-                        </label>
-                    </div>
                 </div>
             </section>
 
             <section class="assessment-panel sidebar-section" aria-labelledby="assessmentTitle">
                 <div class="assessment-copy">
-                    <p class="section-label">EXPERT ASSESSMENT</p>
-                    <h2 id="assessmentTitle">Image-level classification</h2>
-                    <p>Select one before saving this image.</p>
+                    <p class="section-label">OPTIONAL STUDY ASSESSMENT</p>
+                    <h2 id="assessmentTitle">Binary assessment</h2>
+                    <p>Use only when the study protocol requires an image-level label.</p>
                 </div>
-                <div class="classification-cards" role="radiogroup" aria-label="Image-level study assessment">
-                    <button id="ischemicCard" class="classification-card ischemic-card" data-prediction="1" role="radio" aria-checked="false" type="button">
-                        <span class="classification-title">Ischemic</span>
-                        <span class="classification-description">The pattern supports ischemia.</span>
+                <div class="classification-cards" role="radiogroup" aria-label="Optional image-level assessment">
+                    <button id="assessmentOneCard" class="classification-card assessment-one-card" data-assessment="1" role="radio" aria-checked="false" type="button">
+                        <span class="classification-title">Class 1</span>
+                        <span class="classification-description">Study-defined positive label.</span>
                     </button>
-                    <button id="nonIschemicCard" class="classification-card nonischemic-card" data-prediction="0" role="radio" aria-checked="false" type="button">
-                        <span class="classification-title">Non-ischemic</span>
-                        <span class="classification-description">The pattern does not support ischemia.</span>
+                    <button id="assessmentZeroCard" class="classification-card assessment-zero-card" data-assessment="0" role="radio" aria-checked="false" type="button">
+                        <span class="classification-title">Class 0</span>
+                        <span class="classification-description">Study-defined negative label.</span>
                     </button>
                 </div>
             </section>
 
             <footer class="workflow-footer">
                 <button id="previousBtn" class="secondary-button navigation-button" type="button">Previous image</button>
-                <button id="previewBtn" class="preview-button" type="button">Preview final mask</button>
+                <button id="previewBtn" class="preview-button" type="button">Review output</button>
                 <button id="nextBtn" class="primary-button navigation-button" type="button">Save &amp; next image</button>
             </footer>
 
         </aside>
 
-        <section class="image-workspace" aria-label="Fixed 1024-pixel polar map Study View">
-            <section class="annotation-workspace" aria-label="PET polar map annotation canvas">
-                <div class="canvas-container" aria-label="Native-size 1024 by 1024 scrollable annotation canvas">
+        <section class="image-workspace" aria-label="Medical image annotation workspace">
+            <section class="annotation-workspace" aria-label="Native-dimension annotation canvas">
+                <div class="canvas-container" aria-label="Scrollable annotation canvas">
                     <canvas id="backgroundCanvas"></canvas>
                     <canvas id="maskCanvas"></canvas>
-                    <canvas id="guideCanvas"></canvas>
                     <canvas id="gridCanvas"></canvas>
                 </div>
             </section>
@@ -124,9 +107,9 @@
         <div class="preview-dialog">
             <div class="preview-header">
                 <div>
-                    <p class="eyebrow">MANUSCRIPT-STYLE OUTPUT</p>
-                    <h2 id="previewTitle">Final mask preview</h2>
-                    <p>White is the final processed mask. The editing grid and guide are not included.</p>
+                    <p class="eyebrow">REVIEW OUTPUT</p>
+                    <h2 id="previewTitle">Final annotation preview</h2>
+                    <p>White marks the final annotation. The editing grid is not included.</p>
                 </div>
                 <button id="closePreviewBtn" class="close-preview" type="button" aria-label="Close preview">×</button>
             </div>
@@ -139,6 +122,6 @@
         </div>
     </div>
 
-    <script defer src="/static/script.js?v=20260813-0100"></script>
+    <script defer src="/static/script.js?v=20260920-0200"></script>
 </body>
 </html>
