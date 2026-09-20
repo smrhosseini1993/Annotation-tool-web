@@ -32,7 +32,7 @@ jobs:
           $shortSha = '${{ github.sha }}'.Substring(0, 7)
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "short_sha=$shortSha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Building PET-MPI Annotation Study Kit v$version from commit $shortSha"
+          Write-Host "Building Medical Image Annotation Study Kit v$version from commit $shortSha"
 
       - name: Build the packaged Study Kit
         shell: pwsh
@@ -44,15 +44,15 @@ jobs:
         shell: pwsh
         run: |
           $identity = @(
-            "PET-MPI Annotation Study Kit v${{ steps.package.outputs.version }}",
+            "Medical Image Annotation Study Kit v${{ steps.package.outputs.version }}",
             "Git commit: ${{ github.sha }}",
             "GitHub Actions run: ${{ github.run_number }}"
           )
-          $identity | Set-Content -Encoding utf8 release\PET-MPI-Annotation-Study-Windows\BUILD_INFO.txt
+          $identity | Set-Content -Encoding utf8 release\Medical-Image-Annotation-Study-Windows\BUILD_INFO.txt
 
       - name: Upload versioned Windows Study Kit
         uses: actions/upload-artifact@v4
         with:
-          name: PET-MPI-Annotation-Study-Windows-v${{ steps.package.outputs.version }}-${{ steps.package.outputs.short_sha }}-run${{ github.run_number }}
-          path: release/PET-MPI-Annotation-Study-Windows
+          name: Medical-Image-Annotation-Study-Windows-v${{ steps.package.outputs.version }}-${{ steps.package.outputs.short_sha }}-run${{ github.run_number }}
+          path: release/Medical-Image-Annotation-Study-Windows
           if-no-files-found: error
