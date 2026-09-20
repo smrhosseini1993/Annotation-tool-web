@@ -1,4 +1,5 @@
-# PET polar-map annotation tool (local Flask application)
+# Medical image annotation tool (local Flask application).
+# The current study configuration is for PET-MPI polar maps.
 #
 # The application saves a binary mask, a working-colour overlay, a clean white
 # final-preview image, and compact annotation metadata for each input image.
