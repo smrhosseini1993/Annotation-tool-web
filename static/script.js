@@ -1,28 +1,24 @@
 /**
- * PET polar-map annotation tool
+ * Local medical image annotation tool.
  *
- * The standard study format is a fixed 1024 × 1024 layout. A permanent
- * coordinate stencil—not each image's colours—defines the tissue coordinates
- * where annotation may be displayed or exported.
+ * Images remain at their native dimensions. A logical 128 × 128 grid creates
+ * reproducible, image-aligned annotation masks without assuming a modality,
+ * anatomy, fixed shape, or fixed image size.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     const GRID_DIMENSION = 128;
-    const STANDARD_MAP_SIZE = 1024;
-    const FIXED_STENCIL_PATH = '/static/assets/polar_map_paintable_stencil_1024.png';
-    const MIN_PAINTABLE_PIXELS_PER_CELL = 16;
     const MASK_ALPHA = 108;
     const PREVIEW_WHITE_ALPHA = 118;
 
     // ── Canvas elements ─────────────────────────────────────────────────────
     const backgroundCanvas = document.getElementById('backgroundCanvas');
     const maskCanvas = document.getElementById('maskCanvas');
-    const guideCanvas = document.getElementById('guideCanvas');
     const gridCanvas = document.getElementById('gridCanvas');
     const previewCanvas = document.getElementById('previewCanvas');
+    const canvasContainer = document.querySelector('.canvas-container');
     const bgCtx = backgroundCanvas.getContext('2d');
     const maskCtx = maskCanvas.getContext('2d');
-    const guideCtx = guideCanvas.getContext('2d');
     const gridCtx = gridCanvas.getContext('2d');
     const previewCtx = previewCanvas.getContext('2d');
 
@@ -38,11 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const redoBtn = document.getElementById('redoBtn');
     const cellGridToggle = document.getElementById('cellGridToggle');
     const gridColorInput = document.getElementById('gridColor');
-    const guideToggle = document.getElementById('guideToggle');
-    const guideStrength = document.getElementById('guideStrength');
-    const guideColorInput = document.getElementById('guideColor');
-    const ischemicCard = document.getElementById('ischemicCard');
-    const nonIschemicCard = document.getElementById('nonIschemicCard');
+    const assessmentOneCard = document.getElementById('assessmentOneCard');
+    const assessmentZeroCard = document.getElementById('assessmentZeroCard');
     const previousBtn = document.getElementById('previousBtn');
     const previewBtn = document.getElementById('previewBtn');
     const nextBtn = document.getElementById('nextBtn');
@@ -54,10 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let images = [];
     let currentImageIndex = 0;
     let currentImage = null;
-    let selectedPrediction = null;
+    let selectedAssessment = null;
     let savedFilenames = new Set();
     let loadVersion = 0;
-    // Keeps unsaved work in memory when the expert uses Previous and returns.
     const drafts = new Map();
 
     // ── Grid annotation state ───────────────────────────────────────────────
@@ -73,14 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAction = null;
     let hoverCell = null;
 
-    // 1 = paint allowed by the fixed coordinate stencil, 0 = non-adherent.
-    let paintablePixels = null;
-    let cellHasPaintableArea = new Uint8Array(GRID_DIMENSION * GRID_DIMENSION);
-    let fixedStencilImage = null;
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Utilities
-    // ════════════════════════════════════════════════════════════════════════
     function hexToRgb(hex) {
         const normalised = hex.replace('#', '');
         return {
@@ -114,16 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Version information is unavailable.');
             const info = await response.json();
             appVersion.textContent = `v${info.version || 'development'}`;
-            appVersion.title = `PET-MPI Annotation Study Kit v${info.version || 'development'}`;
+            appVersion.title = `Medical Image Annotation Study Kit v${info.version || 'development'}`;
         } catch (error) {
             appVersion.textContent = 'v?';
             appVersion.title = 'Study Kit version unavailable';
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Dataset / saved-state loading
-    // ════════════════════════════════════════════════════════════════════════
     async function initialiseApp() {
         try {
             const [imagesResponse, statusResponse] = await Promise.all([
@@ -173,8 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initialiseCanvases(image.width, image.height);
             bgCtx.clearRect(0, 0, image.width, image.height);
             bgCtx.drawImage(image, 0, 0);
-            await loadFixedCoordinateStencil(image.width, image.height);
-            if (thisLoadVersion !== loadVersion) return;
 
             const draft = drafts.get(filename);
             if (draft) {
@@ -182,12 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (savedState && savedState.saved) {
                 restoreAnnotationState({
                     selectedCells: savedState.selectedCells || [],
-                    prediction: savedState.prediction || null
+                    assessment: savedState.assessment || null
                 });
             }
             redrawAll();
-            // loadImage initially disables controls while the image/stencil load;
-            // re-enable the relevant actions once the canvas is ready.
             updateProgress();
         } catch (error) {
             console.error(error);
@@ -200,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const image = new Image();
             image.src = `/study_images/${encodeURIComponent(filename)}`;
             image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error('The polar-map image could not be opened.'));
+            image.onerror = () => reject(new Error('The input image could not be opened.'));
         });
     }
 
@@ -220,38 +197,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initialiseCanvases(width, height) {
-        [backgroundCanvas, maskCanvas, guideCanvas, gridCanvas].forEach(canvas => {
+        [backgroundCanvas, maskCanvas, gridCanvas].forEach(canvas => {
             canvas.width = width;
             canvas.height = height;
         });
-        // CSS owns the responsive visual size of the stacked canvases. Their
-        // internal pixel dimensions remain the fixed study image dimensions.
+        canvasContainer.style.width = `${width}px`;
+        canvasContainer.style.height = `${height}px`;
         cellWidth = width / GRID_DIMENSION;
         cellHeight = height / GRID_DIMENSION;
     }
 
     function resetImageState() {
         selectedCells = new Set();
-        selectedPrediction = null;
+        selectedAssessment = null;
         undoStack = [];
         redoStack = [];
         isDrawing = false;
         lastGridCell = null;
         currentAction = null;
         hoverCell = null;
-        paintablePixels = null;
-        cellHasPaintableArea = new Uint8Array(GRID_DIMENSION * GRID_DIMENSION);
         updateHistoryButtons();
-        updateClassificationCards();
+        updateAssessmentCards();
     }
 
     function restoreAnnotationState(state) {
         selectedCells = new Set((state.selectedCells || []).filter(isValidCellKey));
-        selectedPrediction = state.prediction === '0' || state.prediction === '1' ? state.prediction : null;
+        selectedAssessment = state.assessment === '0' || state.assessment === '1' ? state.assessment : null;
         undoStack = [];
         redoStack = [];
         updateHistoryButtons();
-        updateClassificationCards();
+        updateAssessmentCards();
     }
 
     function isValidCellKey(key) {
@@ -265,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!filename || !currentImage) return;
         drafts.set(filename, {
             selectedCells: [...selectedCells],
-            prediction: selectedPrediction
+            assessment: selectedAssessment
         });
     }
 
@@ -279,78 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
         nextBtn.textContent = currentImageIndex === images.length - 1 ? 'Save image' : 'Save & next image';
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Fixed coordinate stencil
-    // ════════════════════════════════════════════════════════════════════════
-    function loadFixedCoordinateStencil(width, height) {
-        if (width !== STANDARD_MAP_SIZE || height !== STANDARD_MAP_SIZE) {
-            return Promise.reject(new Error(`This tool requires ${STANDARD_MAP_SIZE} × ${STANDARD_MAP_SIZE} polar maps; received ${width} × ${height}.`));
-        }
-
-        const useStencil = stencil => {
-            if (stencil.width !== width || stencil.height !== height) {
-                throw new Error('The fixed polar-map stencil does not match the input image dimensions.');
-            }
-            const stencilCanvas = document.createElement('canvas');
-            stencilCanvas.width = width;
-            stencilCanvas.height = height;
-            const stencilCtx = stencilCanvas.getContext('2d');
-            stencilCtx.drawImage(stencil, 0, 0);
-            const stencilPixels = stencilCtx.getImageData(0, 0, width, height).data;
-
-            paintablePixels = new Uint8Array(width * height);
-            const validCounts = new Uint16Array(GRID_DIMENSION * GRID_DIMENSION);
-            for (let y = 0; y < height; y++) {
-                const row = Math.min(GRID_DIMENSION - 1, Math.floor(y / cellHeight));
-                for (let x = 0; x < width; x++) {
-                    const pixelIndex = y * width + x;
-                    if (stencilPixels[pixelIndex * 4] < 128) continue;
-                    paintablePixels[pixelIndex] = 1;
-                    const col = Math.min(GRID_DIMENSION - 1, Math.floor(x / cellWidth));
-                    validCounts[row * GRID_DIMENSION + col]++;
-                }
-            }
-            for (let i = 0; i < validCounts.length; i++) {
-                cellHasPaintableArea[i] = validCounts[i] >= MIN_PAINTABLE_PIXELS_PER_CELL ? 1 : 0;
-            }
-        };
-
-        if (fixedStencilImage && fixedStencilImage.complete) {
-            try {
-                useStencil(fixedStencilImage);
-                return Promise.resolve();
-            } catch (error) {
-                return Promise.reject(error);
-            }
-        }
-
-        return new Promise((resolve, reject) => {
-            const stencil = new Image();
-            stencil.onload = () => {
-                try {
-                    fixedStencilImage = stencil;
-                    useStencil(stencil);
-                    resolve();
-                } catch (error) {
-                    reject(error);
-                }
-            };
-            stencil.onerror = () => reject(new Error('Could not load the fixed polar-map stencil.'));
-            stencil.src = FIXED_STENCIL_PATH;
-        });
-    }
-
-    function isSelectableCell(col, row) {
-        if (col < 0 || row < 0 || col >= GRID_DIMENSION || row >= GRID_DIMENSION) return false;
-        return cellHasPaintableArea[row * GRID_DIMENSION + col] === 1;
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Canvas rendering
-    // ════════════════════════════════════════════════════════════════════════
+    // ── Canvas rendering ────────────────────────────────────────────────────
     function redrawAll() {
         redrawMask();
-        drawGuide();
         drawCellGrid();
     }
 
@@ -358,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = maskCanvas.width;
         const height = maskCanvas.height;
         maskCtx.clearRect(0, 0, width, height);
-        if (!paintablePixels || selectedCells.size === 0) return;
+        if (selectedCells.size === 0) return;
 
         const colour = hexToRgb(brushColorInput.value);
         const imageData = maskCtx.createImageData(width, height);
@@ -371,9 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const endY = Math.min(height, Math.ceil((row + 1) * cellHeight));
             for (let y = startY; y < endY; y++) {
                 for (let x = startX; x < endX; x++) {
-                    const pixelIndex = y * width + x;
-                    if (!paintablePixels[pixelIndex]) continue;
-                    const outputIndex = pixelIndex * 4;
+                    const outputIndex = (y * width + x) * 4;
                     data[outputIndex] = colour.r;
                     data[outputIndex + 1] = colour.g;
                     data[outputIndex + 2] = colour.b;
@@ -406,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         gridCtx.stroke();
 
-        if (hoverCell && isSelectableCell(hoverCell.col, hoverCell.row)) {
+        if (hoverCell) {
             const side = brushSizeInCells;
             const start = stampStart(hoverCell.col, hoverCell.row, side);
             gridCtx.strokeStyle = activeMode === 'brush'
@@ -423,57 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridCtx.restore();
     }
 
-    function guideStyle() {
-        if (guideStrength.value === 'faint') return { alpha: 0.36, lineWidth: 0.85 };
-        if (guideStrength.value === 'bold') return { alpha: 0.92, lineWidth: 2.35 };
-        return { alpha: 0.65, lineWidth: 1.35 };
-    }
-
-    function drawGuide() {
-        const width = guideCanvas.width;
-        const height = guideCanvas.height;
-        guideCtx.clearRect(0, 0, width, height);
-        if (!guideToggle.checked || !currentImage) return;
-
-        const { alpha, lineWidth } = guideStyle();
-        const cx = width / 2;
-        const cy = height / 2;
-        const outerRadius = Math.min(width, height) * 0.409;
-        const basalInnerRadius = outerRadius * 0.67;
-        const midInnerRadius = outerRadius * 0.38;
-        const apicalInnerRadius = outerRadius * 0.18;
-
-        guideCtx.save();
-        guideCtx.strokeStyle = rgbaFromHex(guideColorInput.value, alpha);
-        guideCtx.lineWidth = lineWidth;
-        guideCtx.lineCap = 'round';
-        [outerRadius, basalInnerRadius, midInnerRadius, apicalInnerRadius].forEach(radius => {
-            guideCtx.beginPath();
-            guideCtx.arc(cx, cy, radius, 0, Math.PI * 2);
-            guideCtx.stroke();
-        });
-        for (let i = 0; i < 6; i++) {
-            drawRadialLine(cx, cy, basalInnerRadius, outerRadius, -Math.PI / 2 + i * Math.PI / 3);
-        }
-        for (let i = 0; i < 6; i++) {
-            drawRadialLine(cx, cy, midInnerRadius, basalInnerRadius, -Math.PI / 2 + Math.PI / 6 + i * Math.PI / 3);
-        }
-        for (let i = 0; i < 4; i++) {
-            drawRadialLine(cx, cy, apicalInnerRadius, midInnerRadius, -Math.PI / 2 + Math.PI / 4 + i * Math.PI / 2);
-        }
-        guideCtx.restore();
-    }
-
-    function drawRadialLine(cx, cy, innerRadius, outerRadius, angle) {
-        guideCtx.beginPath();
-        guideCtx.moveTo(cx + Math.cos(angle) * innerRadius, cy + Math.sin(angle) * innerRadius);
-        guideCtx.lineTo(cx + Math.cos(angle) * outerRadius, cy + Math.sin(angle) * outerRadius);
-        guideCtx.stroke();
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Grid brush / eraser interaction
-    // ════════════════════════════════════════════════════════════════════════
+    // ── Grid brush / eraser interaction ─────────────────────────────────────
     function getGridCellFromEvent(event) {
         const rect = maskCanvas.getBoundingClientRect();
         const x = (event.clientX - rect.left) * maskCanvas.width / rect.width;
@@ -503,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyCell(col, row) {
-        if (!currentAction || !isSelectableCell(col, row)) return;
+        if (!currentAction || col < 0 || row < 0 || col >= GRID_DIMENSION || row >= GRID_DIMENSION) return;
         const key = cellKey(col, row);
         const before = selectedCells.has(key);
         const after = activeMode === 'brush';
@@ -580,27 +434,23 @@ document.addEventListener('DOMContentLoaded', () => {
         redoBtn.disabled = redoStack.length === 0;
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Classification cards
-    // ════════════════════════════════════════════════════════════════════════
-    function choosePrediction(prediction) {
-        selectedPrediction = prediction;
-        updateClassificationCards();
+    // ── Optional study assessment ───────────────────────────────────────────
+    function chooseAssessment(assessment) {
+        selectedAssessment = assessment;
+        updateAssessmentCards();
         cacheCurrentDraft();
     }
 
-    function updateClassificationCards() {
-        const isIschemic = selectedPrediction === '1';
-        const isNonIschemic = selectedPrediction === '0';
-        ischemicCard.classList.toggle('selected', isIschemic);
-        nonIschemicCard.classList.toggle('selected', isNonIschemic);
-        ischemicCard.setAttribute('aria-checked', String(isIschemic));
-        nonIschemicCard.setAttribute('aria-checked', String(isNonIschemic));
+    function updateAssessmentCards() {
+        const isOne = selectedAssessment === '1';
+        const isZero = selectedAssessment === '0';
+        assessmentOneCard.classList.toggle('selected', isOne);
+        assessmentZeroCard.classList.toggle('selected', isZero);
+        assessmentOneCard.setAttribute('aria-checked', String(isOne));
+        assessmentZeroCard.setAttribute('aria-checked', String(isZero));
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Final preview / saved output
-    // ════════════════════════════════════════════════════════════════════════
+    // ── Final preview / saved output ─────────────────────────────────────────
     function buildWhitePreviewCanvas() {
         const width = backgroundCanvas.width;
         const height = backgroundCanvas.height;
@@ -609,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         composite.height = height;
         const compositeCtx = composite.getContext('2d');
         compositeCtx.drawImage(backgroundCanvas, 0, 0);
-        if (!paintablePixels || selectedCells.size === 0) return composite;
+        if (selectedCells.size === 0) return composite;
 
         const overlay = compositeCtx.createImageData(width, height);
         const data = overlay.data;
@@ -621,9 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const endY = Math.min(height, Math.ceil((row + 1) * cellHeight));
             for (let y = startY; y < endY; y++) {
                 for (let x = startX; x < endX; x++) {
-                    const pixelIndex = y * width + x;
-                    if (!paintablePixels[pixelIndex]) continue;
-                    const outputIndex = pixelIndex * 4;
+                    const outputIndex = (y * width + x) * 4;
                     data[outputIndex] = 255;
                     data[outputIndex + 1] = 255;
                     data[outputIndex + 2] = 255;
@@ -654,14 +502,9 @@ document.addEventListener('DOMContentLoaded', () => {
         previewModal.hidden = true;
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Navigation and overwrite-safe saving
-    // ════════════════════════════════════════════════════════════════════════
+    // ── Navigation and overwrite-safe saving ─────────────────────────────────
     async function saveCurrentAnnotation() {
-        if (!currentImage || !selectedPrediction) {
-            alert('Please select Ischemic or Non-ischemic before saving this image.');
-            return false;
-        }
+        if (!currentImage) return false;
 
         const filename = currentFilename();
         nextBtn.disabled = true;
@@ -669,16 +512,13 @@ document.addEventListener('DOMContentLoaded', () => {
         nextBtn.textContent = 'Saving…';
 
         try {
-            // The backend creates all output artifacts deterministically from
-            // this compact state: binary mask, coloured audit overlay, and the
-            // standard white manuscript-style preview.
             const response = await fetch('/save_annotation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     filename,
                     imageIndex: currentImageIndex,
-                    prediction: selectedPrediction,
+                    assessment: selectedAssessment,
                     selectedCells: [...selectedCells],
                     brushColour: brushColorInput.value
                 })
@@ -688,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(failure.error || 'The annotation could not be saved.');
             }
             savedFilenames.add(filename);
-            drafts.set(filename, { selectedCells: [...selectedCells], prediction: selectedPrediction });
+            drafts.set(filename, { selectedCells: [...selectedCells], assessment: selectedAssessment });
             updateProgress();
             return true;
         } catch (error) {
@@ -717,7 +557,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadImage(currentImageIndex - 1);
     }
 
-    // ── Event wiring ─────────────────────────────────────────────────────────
     brushBtn.addEventListener('click', () => setActiveMode('brush'));
     eraserBtn.addEventListener('click', () => setActiveMode('eraser'));
     brushSizeInput.addEventListener('change', () => {
@@ -727,18 +566,10 @@ document.addEventListener('DOMContentLoaded', () => {
     brushColorInput.addEventListener('input', redrawAll);
     undoBtn.addEventListener('click', undo);
     redoBtn.addEventListener('click', redo);
-
     cellGridToggle.addEventListener('change', drawCellGrid);
     gridColorInput.addEventListener('input', drawCellGrid);
-    guideToggle.addEventListener('change', () => {
-        guideStrength.disabled = !guideToggle.checked;
-        drawGuide();
-    });
-    guideStrength.addEventListener('change', drawGuide);
-    guideColorInput.addEventListener('input', drawGuide);
-
-    ischemicCard.addEventListener('click', () => choosePrediction('1'));
-    nonIschemicCard.addEventListener('click', () => choosePrediction('0'));
+    assessmentOneCard.addEventListener('click', () => chooseAssessment('1'));
+    assessmentZeroCard.addEventListener('click', () => chooseAssessment('0'));
     previousBtn.addEventListener('click', goPrevious);
     previewBtn.addEventListener('click', openPreview);
     nextBtn.addEventListener('click', saveAndNext);

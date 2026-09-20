@@ -1,2 +1,2 @@
 @echo off
-start "PET-MPI Annotation Tool" "%~dp0PET-MPI-Annotation-Tool.exe"
+start "Medical Image Annotation Tool" "%~dp0Medical-Image-Annotation-Tool.exe"

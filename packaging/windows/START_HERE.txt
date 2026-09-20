@@ -1,9 +1,12 @@
-PET-MPI Annotation Study Kit
+Medical Image Annotation Study Kit
 
 Version: see VERSION.txt in this folder.
 
-1. Place the assigned 1024 x 1024 polar-map images in:
+1. Place the assigned images in:
    Study_Data\input_images\
+
+   Supported file types: .png, .jpg, and .jpeg.
+   Images keep their native dimensions in the annotation workspace.
 
 2. Double-click:
    Start Annotation Tool.bat
@@ -16,7 +19,7 @@ Version: see VERSION.txt in this folder.
 5. When finished, close the browser and double-click:
    Close Annotation Tool.bat
 
-The clinician guide is available in:
-   Clinician_Guide\clinician_study_view_quick_guide.pdf
+The study guide is available in:
+   Study_Guide\medical_image_annotation_quick_guide.pdf
 
 Do not rename, move, or delete files inside the application folder.
