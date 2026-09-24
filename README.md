@@ -97,7 +97,3 @@ The application is designed to run locally. Do not commit research images, annot
 ## Screenshots
 
 Repository screenshots should use synthetic, non-patient, or appropriately approved de-identified examples. Add them under `docs/screenshots/` when available; do not include study data in the public repository.
-
-## Acknowledgment
-
-This project is a substantially modified web version of an image-annotation tool originally created by Kerttu Pusa as a student project. The original work is available at <https://gitlab.com/group17761803/Annotation_tool>.
